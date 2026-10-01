@@ -1,0 +1,45 @@
+-- Transactional acceptance test; synthetic users and orders are rolled back.
+begin;
+do $$
+declare a uuid:=gen_random_uuid(); b uuid:=gen_random_uuid(); s uuid:=gen_random_uuid(); op uuid:=gen_random_uuid(); o jsonb; r jsonb; oid text; cap text:=repeat('a',64);
+begin
+ insert into auth.users(id,email) values(a,'affsiwen-test-a@example.invalid'),(b,'affsiwen-test-b@example.invalid'),(s,'affsiwen-test-s@example.invalid'),(op,'affsiwen-test-op@example.invalid');
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ perform public.affsiwen_market('profile.setup','{"role":"buyer"}');
+ begin perform public.affsiwen_market('profile.setup','{"role":"operator"}');raise exception 'FAIL: operator signup';exception when sqlstate 'PT403' then null;end;
+ perform public.affsiwen_market('profile.setup','{"role":"supplier"}');
+ if public.affsiwen_market('me')->'user'->>'role'<>'buyer' then raise exception 'FAIL: role promotion';end if;
+ o:=public.affsiwen_market('create','{"key":"acceptance-001","productId":"google-maps","amountCents":1,"input":{"query":"Restaurants in Luxembourg","country":"LU","limit":5}}')->'order';oid:=o->>'id';
+ if (o->>'amountCents')::integer<>1900 then raise exception 'FAIL: price tampering';end if;
+ r:=public.affsiwen_market('create','{"key":"acceptance-001","productId":"google-maps","input":{"query":"Restaurants in Luxembourg","country":"LU","limit":5}}')->'order';
+ if r->>'id'<>oid then raise exception 'FAIL: duplicate order';end if;
+ begin perform public.affsiwen_market('create','{"key":"acceptance-001","productId":"google-maps","input":{"query":"Different task","country":"LU","limit":5}}');raise exception 'FAIL: mismatched replay';exception when sqlstate 'PT409' then null;end;
+ perform public.affsiwen_market('pay-test',jsonb_build_object('id',oid));
+ r:=public.affsiwen_market('pay-test',jsonb_build_object('id',oid))->'order';
+ if jsonb_array_length(r->'result')<>5 or r->>'providerMode'<>'fixture' then raise exception 'FAIL: fixture result';end if;
+ if (select count(*) from affsiwen.events where order_id=oid::uuid and event='payment.fixture_confirmed')<>1 then raise exception 'FAIL: double payment';end if;
+ perform public.affsiwen_market('message',jsonb_build_object('id',oid,'body','Synthetic acceptance message'));
+ perform set_config('request.jwt.claim.sub',b::text,true);perform public.affsiwen_market('profile.setup','{"role":"buyer"}');
+ begin perform public.affsiwen_market('read',jsonb_build_object('id',oid));raise exception 'FAIL: cross-buyer read';exception when sqlstate 'PT404' then null;end;
+ begin perform public.affsiwen_market('message',jsonb_build_object('id',oid,'body','forbidden'));raise exception 'FAIL: cross-buyer message';exception when sqlstate 'PT404' then null;end;
+ perform set_config('request.jwt.claim.sub',s::text,true);perform public.affsiwen_market('profile.setup','{"role":"supplier"}');
+ begin perform public.affsiwen_market('read',jsonb_build_object('id',oid));raise exception 'FAIL: supplier order access';exception when sqlstate 'PT404' then null;end;
+ begin perform public.affsiwen_market('operations');raise exception 'FAIL: supplier admin access';exception when sqlstate 'PT403' then null;end;
+ perform public.affsiwen_market('propose','{"actor":"fixture/acceptance-agent","title":"Acceptance candidate","description":"Synthetic research","submission":{"audience":"Marketing team","inputExample":"Public URL","outputFields":"title,url","limitations":"Public data only"}}');
+ if not exists(select 1 from affsiwen.products where owner_id=s) then raise exception 'FAIL: supplier proposal';end if;
+ insert into affsiwen.profiles values(op,'operator');perform set_config('request.jwt.claim.sub',op::text,true);
+ perform public.affsiwen_market('refund-test',jsonb_build_object('id',oid));perform public.affsiwen_market('refund-test',jsonb_build_object('id',oid));
+ if (select count(*) from affsiwen.events where order_id=oid::uuid and event='refund.fixture_confirmed')<>1 then raise exception 'FAIL: double refund';end if;
+ r:=public.affsiwen_market('operations');
+ if r->>'commercialRevenueCents'<>'0' or r->>'testVolumeCents'<>'0' then raise exception 'FAIL: demo ledger';end if;
+ perform set_config('request.jwt.claim.sub','',true);
+ begin perform public.affsiwen_market('orders');raise exception 'FAIL: anonymous orders';exception when sqlstate 'PT401' then null;end;
+ r:=public.affsiwen_market('catalog');
+ if jsonb_array_length(r->'products')<>6 or r::text like '%fixture/acceptance-agent%' then raise exception 'FAIL: private catalog data';end if;
+ perform public.affsiwen_intake(cap,'{"messages":[],"mode":"demo"}',0);
+ r:=public.affsiwen_intake(cap);
+ if r->>'revision'<>'1' then raise exception 'FAIL: persistent intake';end if;
+ begin perform public.affsiwen_intake(cap,'{"messages":[]}',0);raise exception 'FAIL: intake concurrent update';exception when sqlstate 'PT409' then null;end;
+end $$;
+select 'PASS: ownership, role isolation, price snapshot, idempotency, demo execution, refund, supplier privacy, intake concurrency' as acceptance;
+rollback;
