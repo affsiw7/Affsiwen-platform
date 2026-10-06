@@ -136,7 +136,7 @@ export async function amazonChatReply({messages,prior={},inventory,env={},fetche
   if(answer)answer.usage={inputTokens:Number(output.usage?.input_tokens||0),outputTokens:Number(output.usage?.output_tokens||0)};
 
  }
- if(adapter?.resolveChatAnswer)answer=adapter.resolveChatAnswer(answer,messages);
+ if(adapter?.resolveChatAnswer)answer=adapter.resolveChatAnswer(answer,messages,prior);
  // URL-only products must never turn model wording into an unsupported keyword path.
  const urlOnly=adapter&&tasks.length>0&&tasks.every(t=>!['search','search-results','upc','sku'].includes(t.id));
  const suppliedLink=urlOnly&&messages.some(m=>m.role==='user'&&(m.content.match(/https:\/\/[^\s<>"']+/g)||[]).some(v=>adapter.acceptsUrl(v)));
@@ -147,7 +147,7 @@ export async function amazonChatReply({messages,prior={},inventory,env={},fetche
  if(answer.status==='answer')check(result?.synthetic===false&&result.rows?.length,'Сначала получите реальные данные.');
  else check(!(adapter?.product.category==='Travel'?/€|\$|\d[\d., ]*\s*(?:EUR|USD|GBP|евро|доллар)/i:/€|\$|EUR|USD/i).test(answer.message+(answer.options||[]).join(' ')),'Цена услуги подтверждается отдельно.');
  const options=Array.isArray(answer.options)?answer.options.filter(x=>typeof x==='string'&&x.length<=180).slice(0,3):[];
- const state={...Object.fromEntries(Object.keys(adapter?.chatFields||{}).map(k=>[k,answer[k]??null])),task:answer.task,market:answer.market,limit:answer.limit,value:answer.value,zipcode:answer.zipcode||'',waiting:answer.waiting||null};
+ const state={...Object.fromEntries(Object.keys(adapter?.chatFields||{}).map(k=>[k,answer[k]??null])),task:answer.task,market:answer.market,limit:answer.limit,value:answer.value,zipcode:answer.zipcode||'',goal:answer.goal||'',waiting:answer.waiting||null};
  let prepared=null;
  if(answer.status==='ready'){
   check(typeof answer.goal==='string'&&answer.goal.length>=2,'Опишите цель запроса.');

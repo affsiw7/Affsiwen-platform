@@ -27,7 +27,7 @@ export function createCreatorsRunner({env,fetcher=fetch,read,write,now=()=>Date.
     let run=await runner.read(cap,id);
     if(!run)run=await runner.start(cap,{...job.plan,id,candidateLimit:job.plan.limit,limit:c.limit});
     else run=await runner.status(cap,id);
-    c.status=run.status;c.result=run.result||null;
+    c.status=['starting','reserved'].includes(run.status)&&now()-Date.parse(run.createdAt)>60000?'unknown':run.status;c.result=run.result||null;
     if(!done.has(c.status))break; // One active source at a time.
     if(c.status==='unknown'||c.status==='failed'){job.status=c.status;break;}
    }
