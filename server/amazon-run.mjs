@@ -1,3 +1,4 @@
+import {createCreatorsRunner} from './creators-run.mjs';
 import {createHmac} from 'node:crypto';
 import {HttpError} from './errors.mjs';
 import {prepareAmazon,amazonInventory} from './amazon.mjs';
@@ -41,7 +42,10 @@ export function normalizeAmazonResults(raw,plan,{linkAllowed=null}={}){
  }).filter(r=>Object.values(r).some(v=>v!=='—'));
  return {mode:'live',synthetic:false,rows,title:plan.title,received:raw.length,errorRecords:raw.length-good.length,requested:plan.limit,notice:'Данные получены по этому запросу. «—» означает, что поле не получено. Текстовые поля сокращены для таблицы; выдача может быть меньше запрошенного объёма.'};
 }
-export function createAmazonRunner({env,fetcher=fetch,read,write,now=()=>Date.now(),adapter=null}){
+export function createAmazonRunner(options){
+ return options.adapter?.id==='creators'?createCreatorsRunner({...options,runnerFactory:createSingleRunner}):createSingleRunner(options);
+}
+function createSingleRunner({env,fetcher=fetch,read,write,now=()=>Date.now(),adapter=null}){
  const config=runConfiguration(env),key=env.BRIGHT_DATA_API_KEY,namespace=adapter?.id||'amazon';
  const jobKey=(capability,id)=>sign(key,namespace+'-run-v1:'+capability+':'+id);
  const get=async(capability,id)=>{fail(/^[a-f0-9]{64}$/.test(capability)&&/^[a-f0-9]{32}$/.test(id),400,'Некорректное задание.');return read(jobKey(capability,id));};
