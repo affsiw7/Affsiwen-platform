@@ -1,3 +1,4 @@
+import {socialAdapter} from './social.mjs';
 import {financeAdapter} from './finance.mjs';
 import {travelAdapter} from './travel.mjs';
 import {HttpError} from './errors.mjs';
@@ -18,6 +19,7 @@ const taskCopy={products:['Карточка товара','Данные това
 const columns={products:['Товар','ID товара','Цена','Валюта','Рейтинг','Ссылка'],reviews:['Товар','Оценка','Заголовок отзыва','Текст отзыва','Дата','Ссылка'],sellers:['Продавец','Рейтинг','Публичная информация','Ссылка']};
 const cache=new Map();
 export function commerceAdapter(id){
+ const social=socialAdapter(id);if(social)return social;
  const finance=financeAdapter(id);if(finance)return finance;
  const travel=travelAdapter(id);if(travel)return travel;
  const definition=definitions[id],product=commerceProduct(id);if(!definition||!product)return null;
