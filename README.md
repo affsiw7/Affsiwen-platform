@@ -1,4 +1,4 @@
-# Affsiwen cloud demo
+# Affsiwen platform
 
 A marketplace for ordering public-data research products under the Affsiwen brand. Buyer, supplier and operator workflows share a persistent Supabase database. Vercel serves the interface and a same-origin Node API.
 
@@ -13,12 +13,13 @@ A marketplace for ordering public-data research products under the Affsiwen bran
 
 ## Boundaries
 
-- All displayed prices are unapproved demo scenarios. Orders generate at most 12 synthetic rows. No money is collected and no external paid execution occurs.
-- The assistant is explicitly a deterministic demo; an LLM is not connected in the cloud handler.
+- General marketplace orders remain synthetic demos. Amazon is a separate AI-assisted pilot; commercial pricing and payment are not enabled.
+- Amazon chat uses a server-only Anthropic connection when configured, including bounded image input. The general onboarding assistant remains a separate preview. See [Amazon implementation and acceptance](docs/AMAZON_PRODUCT.md).
+- Amazon real collection is implemented but OFF until a separate pilot allowance is approved. It uses explicit confirmation, persistent runs, shared daily limits, at-most-once trigger attempts, status polling and CSV. No paid collection acceptance has yet been recorded.
 - Accounts, orders, partner submissions, messages and results use Postgres. Anonymous demo conversations expire after one day and are protected by a random capability cookie.
 - Tables live in a private schema with RLS and no direct client table grants. Guarded transaction functions enforce identity, ownership, role, limits and idempotency.
 - Public catalog responses contain customer-facing product information. Private provider mappings, credentials, local databases and internal account records are not part of this public release.
-- Real payment reconciliation, provider execution, qualification workflow, production email delivery and password recovery require further integration and end-to-end acceptance tests before commercial launch.
+- Real payment reconciliation, per-operation live execution acceptance, qualification workflow, production email delivery and password recovery require further integration and end-to-end acceptance tests before commercial launch.
 - The supplied SQL must be reviewed and tested against a dedicated project; mock HTTP tests do not replace database authorization tests.
 
 ## Validation
