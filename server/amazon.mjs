@@ -136,6 +136,7 @@ export async function amazonChatReply({messages,prior={},inventory,env={},fetche
   if(answer)answer.usage={inputTokens:Number(output.usage?.input_tokens||0),outputTokens:Number(output.usage?.output_tokens||0)};
 
  }
+ if(adapter?.resolveChatAnswer)answer=adapter.resolveChatAnswer(answer,messages);
  // URL-only products must never turn model wording into an unsupported keyword path.
  const urlOnly=adapter&&tasks.length>0&&tasks.every(t=>!['search','search-results','upc','sku'].includes(t.id));
  const suppliedLink=urlOnly&&messages.some(m=>m.role==='user'&&(m.content.match(/https:\/\/[^\s<>"']+/g)||[]).some(v=>adapter.acceptsUrl(v)));
