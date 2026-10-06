@@ -30,6 +30,8 @@ test('model cannot prepare a ready plan before explicit confirmation; structured
  const second=await amazonChatReply({adapter,inventory,env,fetcher,prior:first.state,messages:[{role:'user',content:'Да, согласен с брифом'}]});assert.equal(second.prepared.display.brief.product,'Cosmetics');assert.deepEqual(second.state.brief,plan.brief);
  const negated=adapter.resolveChatAnswer(input,[{role:'user',content:'Да, но не запускай, бриф неверный'}],first.state);assert.equal(negated.status,'clarify');
  const modelChanged=adapter.resolveChatAnswer({...input,value:'invented',limit:10,brief:{...plan.brief,country:'AU'}},[{role:'user',content:'Да, согласен с брифом'}],first.state);assert.equal(modelChanged.value,'skincare');assert.equal(modelChanged.limit,5);assert.equal(modelChanged.brief.country,'US');
+ const redundant=adapter.resolveChatAnswer({...input,status:'clarify',message:'Choose a platform',options:['TikTok only']},[{role:'user',content:'Find skincare creators'}]);assert.deepEqual(redundant.options,['Да, согласен с брифом','Хочу изменить критерии']);assert.match(redundant.message,/В подбор входят TikTok и YouTube/);
+ const confirmation=adapter.resolveChatAnswer({...input,status:'clarify'},[{role:'user',content:'Да, согласен с брифом'}],first.state);assert.equal(confirmation.status,'ready');
 });
 function setup({unknown=false,failedSecond=false,environment={}}={}){
  const docs=new Map(),calls=[];let time=1000000;
