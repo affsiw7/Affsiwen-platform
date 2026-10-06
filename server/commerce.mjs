@@ -1,3 +1,4 @@
+import {financeAdapter} from './finance.mjs';
 import {travelAdapter} from './travel.mjs';
 import {HttpError} from './errors.mjs';
 import {commerceProduct,commerceProducts,productLinkAllowed} from '../dist/commerce-catalog.js';
@@ -17,6 +18,7 @@ const taskCopy={products:['Карточка товара','Данные това
 const columns={products:['Товар','ID товара','Цена','Валюта','Рейтинг','Ссылка'],reviews:['Товар','Оценка','Заголовок отзыва','Текст отзыва','Дата','Ссылка'],sellers:['Продавец','Рейтинг','Публичная информация','Ссылка']};
 const cache=new Map();
 export function commerceAdapter(id){
+ const finance=financeAdapter(id);if(finance)return finance;
  const travel=travelAdapter(id);if(travel)return travel;
  const definition=definitions[id],product=commerceProduct(id);if(!definition||!product)return null;
  const tasks=Object.entries({...Object.fromEntries(Object.entries(definition.methods).map(([task,method])=>[task,{family:'products',method:'discover_by_'+method}])),products:{family:'products',method:'collect_by_url'},...(definition.reviews?{reviews:{family:'reviews',method:'collect_by_url'}}:{}),...(definition.sellers?{sellers:{family:'sellers',method:'collect_by_url'}}:{})}).map(([id,mapping])=>({id,title:taskCopy[id][0],description:taskCopy[id][1],...mapping}));
