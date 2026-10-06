@@ -1,3 +1,4 @@
+import {quoteProspecting} from '../server/economics.mjs';
 import {randomBytes,createHash} from 'node:crypto';
 import {HttpError} from '../server/errors.mjs';
 import {DemoIntake,validateRecommendation} from '../server/onboarding.mjs';
@@ -93,6 +94,10 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    if(path==='/catalog'&&method==='POST')return json(201,await rpc('propose',data));
    if(path==='/favorites'&&method==='GET')return json(200,await rpc('favorites'));
    if(path==='/operations'&&method==='GET')return json(200,await rpc('operations'));
+   if(path==='/economics/quote'&&method==='POST'){
+    const {user}=await rpc('me');check(user.role==='operator',403,'Нужен оператор.');
+    return json(200,quoteProspecting(data));
+   }
    if(path==='/launch'&&method==='GET'){
     const {user}=await rpc('me');check(user.role==='operator',403,'Нужен оператор.');
     return json(200,{commercialSales:false,items:[{name:'База и роли',status:'ready',note:'Supabase Postgres; отдельные права покупателя, партнёра и оператора.'},{name:'Веб-платформа',status:'ready',note:'Vercel; API без локального диска и фонового таймера.'},{name:'Исполнение и оплаты',status:'pending',note:'Только синтетические результаты и демооплата.'},{name:'Google',status:env.GOOGLE_LOGIN_ENABLED==='yes'?'ready':'pending',note:'Включается после настройки OAuth в Supabase.'},{name:'LLM и письма',status:'pending',note:'Диалог пока демонстрационный. Нужны настройки провайдеров.'}]});
