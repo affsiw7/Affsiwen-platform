@@ -1,3 +1,4 @@
+import {travelAdapter} from './travel.mjs';
 import {HttpError} from './errors.mjs';
 import {commerceProduct,commerceProducts,productLinkAllowed} from '../dist/commerce-catalog.js';
 import {normalizeAmazonResults} from './amazon-run.mjs';
@@ -9,12 +10,14 @@ const definitions={
  etsy:{domain:'etsy.com',products:'gd_ltppk0jdv1jqz25mz',methods:{search:'keywords','seller-products':'shop_url'}},
  aliexpress:{domain:'aliexpress.us',products:'gd_mlj9v75u1w1jvaxvwp',methods:{category:'category_url'}},
  target:{domain:'target.com',products:'gd_ltppk5mx2lp0v1k0vo',methods:{search:'keywords',upc:'upc',category:'url'}},
+ shein:{domain:'shein.com',products:'gd_mkv55s1f23yjzsl4ix',methods:{category:'category_url'}},
  bestbuy:{domain:'bestbuy.com',products:'gd_ltre1jqe1jfr7cccf',methods:{search:'keywords'}}
 };
 const taskCopy={products:['Карточка товара','Данные товара по его ссылке.'],search:['Найти товары','Товары по точной поисковой фразе.'],reviews:['Собрать отзывы','Отзывы по ссылке на товар.'],sellers:['Изучить продавца','Публичная информация о продавце по ссылке.'],category:['Товары категории','Предложения по ссылке на категорию.'],'seller-products':['Ассортимент магазина','Товары по ссылке на магазин.'],sku:['Найти по SKU','Товар по идентификатору SKU.'],upc:['Найти по UPC','Товар по штрихкоду UPC.']};
 const columns={products:['Товар','ID товара','Цена','Валюта','Рейтинг','Ссылка'],reviews:['Товар','Оценка','Заголовок отзыва','Текст отзыва','Дата','Ссылка'],sellers:['Продавец','Рейтинг','Публичная информация','Ссылка']};
 const cache=new Map();
 export function commerceAdapter(id){
+ const travel=travelAdapter(id);if(travel)return travel;
  const definition=definitions[id],product=commerceProduct(id);if(!definition||!product)return null;
  const tasks=Object.entries({...Object.fromEntries(Object.entries(definition.methods).map(([task,method])=>[task,{family:'products',method:'discover_by_'+method}])),products:{family:'products',method:'collect_by_url'},...(definition.reviews?{reviews:{family:'reviews',method:'collect_by_url'}}:{}),...(definition.sellers?{sellers:{family:'sellers',method:'collect_by_url'}}:{})}).map(([id,mapping])=>({id,title:taskCopy[id][0],description:taskCopy[id][1],...mapping}));
  async function inventory({key,fetcher=fetch,now=Date.now()}={}){
