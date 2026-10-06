@@ -1,3 +1,4 @@
+import {realEstateAdapter} from './real-estate.mjs';
 import {creatorsAdapter} from './creators.mjs';
 import {socialAdapter} from './social.mjs';
 import {financeAdapter} from './finance.mjs';
@@ -21,6 +22,7 @@ const columns={products:['Товар','ID товара','Цена','Валюта
 const cache=new Map();
 export function commerceAdapter(id){
  if(id==='creators')return creatorsAdapter();
+ const estate=realEstateAdapter(id);if(estate)return estate;
  const social=socialAdapter(id);if(social)return social;
  const finance=financeAdapter(id);if(finance)return finance;
  const travel=travelAdapter(id);if(travel)return travel;
