@@ -1,27 +1,38 @@
+import {commerceProduct} from './commerce-catalog.js';
 import {amazonHome,ecommercePage,amazonPage,amazonTaskCopy} from './amazon.js';
 import {economicsForm,economicsResult} from './economics-ui.js';
 import {landing,publicShell,roleWelcome,examples,offerFor,offerCard,offerPreview} from './landing.js';
 import {partnerWizard} from './partner-onboarding.js';
 const root=document.querySelector('#app');
+let activeCommerceId='amazon';
+const commercePath=()=>activeCommerceId==='amazon'?'amazon':'commerce/'+activeCommerceId;
+const onCommercePage=()=>path()==='product/'+activeCommerceId;
+const freshCommerceState=()=>({connection:null,messages:[],answer:null,plan:null,quote:null,result:null,error:'',text:'',mode:'preview',image:null,run:null});
 let amazonState={connection:null,messages:[],answer:null,plan:null,quote:null,result:null,error:'',text:'',mode:'preview',image:null,run:null};
 let amazonRequestId=crypto.randomUUID();
-function drawAmazon(){root.innerHTML=publicShell(amazonPage(amazonState),{user,active:'catalog',realData:amazonState.connection?.execution?.enabled});}
-async function openAmazon(){document.title='Amazon — Affsiwen';drawAmazon();try{const [connection,workspace]=await Promise.all([api('amazon/connection'),api('amazon/workspace')]);amazonState={...amazonState,connection,...workspace,error:''};if(!workspace.messages?.length){amazonState.plan=null;amazonState.quote=null;amazonState.result=null;}if(path()==='product/amazon'){drawAmazon();scheduleAmazonPoll();}}catch(e){amazonState.error=e.message;if(path()==='product/amazon')drawAmazon();}}
+function drawAmazon(){root.innerHTML=publicShell(amazonPage({...amazonState,product:commerceProduct(activeCommerceId)}),{user,active:'catalog',realData:amazonState.connection?.execution?.enabled});}
+async function openAmazon(id='amazon'){
+ clearTimeout(amazonPollTimer);activeCommerceId=id;amazonState=freshCommerceState();amazonRequestId=crypto.randomUUID();amazonPollCount=0;
+ const current=id,base=commercePath();document.title=commerceProduct(id).name+' — Affsiwen';drawAmazon();
+ try{const [connection,workspace]=await Promise.all([api(base+'/connection'),api(base+'/workspace')]);if(current!==activeCommerceId||!onCommercePage())return;amazonState={...amazonState,connection,...workspace,error:''};if(!workspace.messages?.length){amazonState.plan=null;amazonState.quote=null;amazonState.result=null;}drawAmazon();scheduleAmazonPoll();}
+ catch(e){if(current===activeCommerceId&&onCommercePage()){amazonState.error=e.message;drawAmazon();}}
+}
 async function sendAmazon(message){
+ const current=activeCommerceId,base=commercePath();
  amazonState.text=message;amazonState.pending=true;amazonState.error='';drawAmazon();
- try{const result=await api('amazon/chat',{message,requestId:amazonRequestId,image:amazonState.image});amazonState={...amazonState,...result,text:'',image:null};amazonRequestId=crypto.randomUUID();}
- catch(e){amazonState.error=e.message;}
- finally{amazonState.pending=false;if(path()==='product/amazon'){drawAmazon();root.querySelector('.amazon-offer')?.scrollIntoView({behavior:'smooth',block:'center'});root.querySelector('#amazon-message')?.focus({preventScroll:true});}}
+ try{const result=await api(base+'/chat',{message,requestId:amazonRequestId,image:amazonState.image});if(current!==activeCommerceId||!onCommercePage())return;amazonState={...amazonState,...result,text:'',image:null};amazonRequestId=crypto.randomUUID();}
+ catch(e){if(current===activeCommerceId)amazonState.error=e.message;}
+ finally{if(current!==activeCommerceId)return;amazonState.pending=false;if(onCommercePage()){drawAmazon();root.querySelector('.amazon-offer')?.scrollIntoView({behavior:'smooth',block:'center'});root.querySelector('#amazon-message')?.focus({preventScroll:true});}}
 }
 
 let amazonPollTimer=null,amazonPollCount=0;
-function scheduleAmazonPoll(){clearTimeout(amazonPollTimer);if(path()==='product/amazon'&&['starting','running'].includes(amazonState.run?.status)&&amazonPollCount<60)amazonPollTimer=setTimeout(()=>pollAmazon(),10000);}
+function scheduleAmazonPoll(){clearTimeout(amazonPollTimer);if(onCommercePage()&&['starting','running'].includes(amazonState.run?.status)&&amazonPollCount<60)amazonPollTimer=setTimeout(()=>pollAmazon(),10000);}
 async function pollAmazon(){
- if(path()!=='product/amazon')return;
+ if(!onCommercePage())return;
  if(busy||document.hidden){scheduleAmazonPoll();return;}
- try{amazonPollCount++;const response=await api('amazon/run/status');amazonState.run=response.run;amazonState.result=response.run?.result||null;amazonState.error='';drawAmazon();}
- catch(e){amazonState.error=e.message;drawAmazon();}
- finally{scheduleAmazonPoll();}
+ const current=activeCommerceId;try{amazonPollCount++;const response=await api(commercePath()+'/run/status');if(current!==activeCommerceId||!onCommercePage())return;amazonState.run=response.run;amazonState.result=response.run?.result||null;amazonState.error='';drawAmazon();}
+ catch(e){if(current===activeCommerceId&&onCommercePage()){amazonState.error=e.message;drawAmazon();}}
+ finally{if(current===activeCommerceId)scheduleAmazonPoll();}
 }
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'EUR'}).format(n/100);
@@ -70,7 +81,7 @@ function homePage(){document.title='Affsiwen — продукты по площ�
 function startPage(role){document.title='Affsiwen — начало работы';root.innerHTML=publicShell(roleWelcome(role,{user,health}),{user,active:role});}
 function partnerPage(){root.innerHTML=publicShell(partnerWizard({step:partnerStep,draft:partnerDraft,user}),{user,active:'supplier'});}
 async function load(){products=(await api('catalog')).products;if(user)favorites=(await api('favorites')).ids;}
-async function render(){const revision=++routeRevision;try{await load();if(revision!==routeRevision)return;const [page,id]=path().split('/');if(!user&&!['home','start','partner','assistant','methodology','catalog','e-commerce','product','login','resume'].includes(page)){location.hash=page==='supply'?'login/supplier':'login';return;}if(['sourcing','operations','analytics','economics','launch'].includes(page)&&user?.role!=='operator'){shell(empty('Нет доступа','Этот раздел доступен оператору Affsiwen.'));return;}if(page==='resume'){const intent=sessionStorage.getItem('affsiwen-login-intent');sessionStorage.removeItem('affsiwen-login-intent');location.hash=intent==='supplier'?(user?.role==='supplier'?'partner/apply':'start/supplier'):pendingOrder?`product/${pendingOrder.productId}`:'assistant';return;}if(page==='home')homePage();else if(page==='start')startPage(id);else if(page==='partner'&&id==='apply')partnerPage();else if(page==='assistant')await assistantPage();else if(page==='methodology')methodology();else if(page==='e-commerce'||page==='catalog'){document.title='E-commerce — Affsiwen';root.innerHTML=publicShell(ecommercePage(),{user,active:'catalog'});}else if(page==='favorites')catalog();else if(page==='product'&&id==='amazon')await openAmazon();else if(page==='product')productPage(products.find(p=>p.id===id&&p.status==='published'));else if(page==='login')login();else if(page==='orders')await orderList();else if(page==='order')await orderPage(id);else if(page==='sourcing'||page==='supply')sourcing();else if(page==='economics')shell(heading('Расчёт цены Agent','Внутренний инструмент Affsiwen. Значения — сценарии, не измеренные расходы.')+economicsForm());else if(page==='analytics')await analytics();else if(page==='operations')await operations();else if(page==='launch')await launch();else shell(empty('Страница не найдена','Вернитесь в каталог.'));}catch(e){toast(e.message,true);if(!root.querySelector('main'))shell(empty('Сервер недоступен','Запустите сервер Affsiwen. Статический хостинг не исполняет заказы.'));}}
+async function render(){const revision=++routeRevision;try{await load();if(revision!==routeRevision)return;const [page,id]=path().split('/');if(!user&&!['home','start','partner','assistant','methodology','catalog','e-commerce','product','login','resume'].includes(page)){location.hash=page==='supply'?'login/supplier':'login';return;}if(['sourcing','operations','analytics','economics','launch'].includes(page)&&user?.role!=='operator'){shell(empty('Нет доступа','Этот раздел доступен оператору Affsiwen.'));return;}if(page==='resume'){const intent=sessionStorage.getItem('affsiwen-login-intent');sessionStorage.removeItem('affsiwen-login-intent');location.hash=intent==='supplier'?(user?.role==='supplier'?'partner/apply':'start/supplier'):pendingOrder?`product/${pendingOrder.productId}`:'assistant';return;}if(page==='home')homePage();else if(page==='start')startPage(id);else if(page==='partner'&&id==='apply')partnerPage();else if(page==='assistant')await assistantPage();else if(page==='methodology')methodology();else if(page==='e-commerce'||page==='catalog'){document.title='E-commerce — Affsiwen';root.innerHTML=publicShell(ecommercePage(),{user,active:'catalog'});}else if(page==='favorites')catalog();else if(page==='product'&&commerceProduct(id))await openAmazon(id);else if(page==='product')productPage(products.find(p=>p.id===id&&p.status==='published'));else if(page==='login')login();else if(page==='orders')await orderList();else if(page==='order')await orderPage(id);else if(page==='sourcing'||page==='supply')sourcing();else if(page==='economics')shell(heading('Расчёт цены Agent','Внутренний инструмент Affsiwen. Значения — сценарии, не измеренные расходы.')+economicsForm());else if(page==='analytics')await analytics();else if(page==='operations')await operations();else if(page==='launch')await launch();else shell(empty('Страница не найдена','Вернитесь в каталог.'));}catch(e){toast(e.message,true);if(!root.querySelector('main'))shell(empty('Сервер недоступен','Запустите сервер Affsiwen. Статический хостинг не исполняет заказы.'));}}
 root.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;busy=true;const f=ev.target,data=Object.fromEntries(new FormData(f));const buttons=[...f.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);try{
  if(f.id==='amazon-chat'){await sendAmazon(data.message);}
  else if(f.id==='partner-wizard'){
@@ -90,15 +101,16 @@ root.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;bus
 root.addEventListener('click',async ev=>{const b=ev.target.closest('[data-action]');if(!b||busy)return;const a=b.dataset.action;busy=true;try{
  if(a==='amazon-suggestion'){await sendAmazon(b.dataset.value);}
  else if(a==='amazon-remove-image'){amazonState.image=null;amazonRequestId=crypto.randomUUID();drawAmazon();}
- else if(a==='amazon-reset'){const cleared=await api('amazon/chat/reset',{});amazonState={...amazonState,...cleared,text:'',error:'',image:null};amazonRequestId=crypto.randomUUID();drawAmazon();}
+ else if(a==='amazon-reset'){const cleared=await api(commercePath()+'/chat/reset',{});amazonState={...amazonState,...cleared,text:'',error:'',image:null};amazonRequestId=crypto.randomUUID();drawAmazon();}
  else if(a==='amazon-run'){
+  const current=activeCommerceId,base=commercePath();
   if(!amazonState.plan)throw Error('Подготовьте запрос.');amazonState.launching=true;amazonState.error='';drawAmazon();
-  try{const response=await api('amazon/run',{planId:amazonState.plan.id,confirm:true});amazonState.run=response.run;amazonState.result=response.run?.result||null;amazonPollCount=0;}
-  catch(e){amazonState.error=e.message;try{const restored=await api('amazon/workspace');amazonState={...amazonState,...restored};}catch{}}
-  finally{amazonState.launching=false;drawAmazon();scheduleAmazonPoll();}
+  try{const response=await api(base+'/run',{planId:amazonState.plan.id,confirm:true});if(current!==activeCommerceId||!onCommercePage())return;amazonState.run=response.run;amazonState.result=response.run?.result||null;amazonPollCount=0;}
+  catch(e){if(current===activeCommerceId&&onCommercePage()){amazonState.error=e.message;try{const restored=await api(base+'/workspace');if(current===activeCommerceId&&onCommercePage())amazonState={...amazonState,...restored};}catch{}}}
+  finally{if(current===activeCommerceId&&onCommercePage()){amazonState.launching=false;drawAmazon();scheduleAmazonPoll();}}
  }
  else if(a==='amazon-poll'){busy=false;await pollAmazon();}
- else if(a==='amazon-demo'){if(!amazonState.plan)throw Error('Сначала подготовьте запрос.');const response=await api('amazon/demo',{planId:amazonState.plan.id});amazonState={...amazonState,...response};drawAmazon();root.querySelector('.amazon-result')?.scrollIntoView({behavior:'smooth'});}
+ else if(a==='amazon-demo'){if(!amazonState.plan)throw Error('Сначала подготовьте запрос.');const response=await api(commercePath()+'/demo',{planId:amazonState.plan.id});amazonState={...amazonState,...response};drawAmazon();root.querySelector('.amazon-result')?.scrollIntoView({behavior:'smooth'});}
  else if(a==='focus-main'){ev.preventDefault();document.querySelector('#page-content')?.focus();}
  else if(a==='landing-example'){landingExample=b.dataset.value;homePage();root.querySelector(`[data-action="landing-example"][data-value="${landingExample}"]`)?.focus({preventScroll:true});}
  else if(a==='landing-role'){landingRole=b.dataset.value;homePage();root.querySelector(`[data-action="landing-role"][data-value="${landingRole}"]`)?.focus({preventScroll:true});}
