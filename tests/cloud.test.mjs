@@ -100,3 +100,26 @@ test('public assistant reserves the global allowance before any paid model call'
  }
  assert.equal(modelCalls,2);assert.equal(allowance,2);
 });
+
+test('cloud live run roundtrip keeps ownership, returns actual rows and exports without a second trigger',async()=>{
+ const docs=new Map();let triggers=0;const fetcher=async(url,opts={})=>{
+  if(String(url).startsWith('https://api.brightdata.com/')){
+   if(String(url).includes('/scrapers?'))return Response.json([{id:'gd_l7q7dkf244hwjntr0',scrapers:{discover_by_keyword:{input_schema:[{name:'keyword',required:true}]}}}]);
+   if(String(url).includes('/trigger?')){triggers++;return Response.json({snapshot_id:'sd_actual123'});}
+   if(String(url).includes('/progress/'))return Response.json({status:'ready'});
+   if(String(url).includes('/snapshot/'))return Response.json([{title:'Source bottle',final_price:20,currency:'USD',url:'https://www.amazon.com/dp/B012345678'}]);
+   throw Error('unexpected supplier call');
+  }
+  const b=JSON.parse(opts.body),old=docs.get(b.capability)||{revision:0,document:null};
+  if(b.document){if(old.revision!==b.expected_revision)return Response.json({code:'PT409',message:'Conflict'},{status:409});docs.set(b.capability,{document:b.document,revision:old.revision+1});}return Response.json(docs.get(b.capability)||old);
+ };
+ const environment={...env,BRIGHT_DATA_API_KEY:'run-key',AFFSIWEN_AMAZON_RUN_ENABLED:'yes',AFFSIWEN_AMAZON_RUNS_PER_DAY:'1'};
+ const prepared=await call('/api/amazon/prepare',{environment,fetcher,data:{task:'search',market:'US',limit:5,request:'Find products',value:'bottle'}});const plan=JSON.parse(prepared.body).plan,headers={cookie:prepared.headers['set-cookie'][0].split(';')[0]};
+ assert.equal((await call('/api/amazon/run',{environment,fetcher,headers,data:{planId:plan.id}})).statusCode,400);
+ const started=await call('/api/amazon/run',{environment,fetcher,headers,data:{planId:plan.id,confirm:true}});assert.equal(started.statusCode,200,started.body);assert.equal(JSON.parse(started.body).run.status,'running');
+ await call('/api/amazon/run',{environment,fetcher,headers,data:{planId:plan.id,confirm:true}});assert.equal(triggers,1);
+ const done=await call('/api/amazon/run/status',{environment,fetcher,headers});assert.equal(done.statusCode,200,done.body);assert.equal(JSON.parse(done.body).run.result.rows[0]['Товар'],'Source bottle');assert.doesNotMatch(done.body,/gd_|sd_actual123|run-key/);
+ const restored=JSON.parse((await call('/api/amazon/workspace',{environment,fetcher,headers})).body);assert.equal(restored.result.synthetic,false);
+ const csv=await call('/api/amazon/export',{environment,fetcher,headers});assert.match(csv.body,/Source bottle/);assert.doesNotMatch(csv.headers['content-disposition'],/DEMO/);
+ assert.equal((await call('/api/amazon/run/status?id='+plan.id,{environment,fetcher,headers:{cookie:'aff_amazon='+'f'.repeat(64)}})).statusCode,404);
+});
