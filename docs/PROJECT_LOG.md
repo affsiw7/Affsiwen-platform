@@ -157,3 +157,8 @@ Next acceptance: approve a bounded collection allowance, run 5 products for “i
 ### Deployment acceptance — 2026-10-06
 
 GitHub commits `dd307b6` (tests), `5e4457e` (plan/log), `6307b73` (README) are published. Vercel Production reports Ready for commit `6307b73` at deployment `xuedBttE5uEaDW9SRMxYBU46u53B`. In authorized Chrome AFF7, the public Amazon page restored the existing conversation/plan and displayed the new disabled real-data action. Existing sample rows remain explicitly synthetic; no actual collection or cost measurement is claimed. The separate Bright Data spend question remains unanswered, so execution configuration was not enabled.
+
+
+## 2026-10-06 — E-commerce expansion
+
+User requested products analogous to Amazon across E-commerce, with economics to follow observed supplier spend. Implemented six more products: Walmart, eBay, Etsy, AliExpress, Target and Best Buy; 21 source operations. One contextual chat per store, isolated history/results, runtime schema validation, shared AI and collection allowance, table/CSV pipeline. No final price or measured margin asserted. 49 targeted tests and cloud build pass; automated source responses are fixtures. See [ECOMMERCE_PRODUCTS.md](ECOMMERCE_PRODUCTS.md) for scope, evidence, architecture and remaining acceptance.
