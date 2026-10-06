@@ -1,0 +1,1 @@
+observed_at,provider,product_version,run_id,scenario,country,category,requested_limit,raw_rows,billed_records,unique_rows,accepted_rows,missing_website,missing_phone,rejected_geo,rejected_category,duration_seconds,invoice_reference,invoiced_usd,usd_to_eur,other_variable_eur,cost_per_accepted_eur,quality_review,status
