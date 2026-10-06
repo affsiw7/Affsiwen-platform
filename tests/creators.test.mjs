@@ -27,7 +27,9 @@ test('model cannot prepare a ready plan before explicit confirmation; structured
  const env={ANTHROPIC_API_KEY:'fixture',AFFSIWEN_AMAZON_CHAT_ENABLED:'yes',AFFSIWEN_AMAZON_CHAT_MODEL:'claude-haiku-4-5-20251001'};
  const fetcher=async(url,options)=>{const body=JSON.parse(options.body);assert.ok(body.tools[0].input_schema.required.includes('brief'));return Response.json({stop_reason:'tool_use',content:[{type:'tool_use',name:'amazon_assistant_reply',input}]});};
  const first=await amazonChatReply({adapter,inventory,env,fetcher,messages:[{role:'user',content:'Find skincare creators'}]});assert.equal(first.answer.status,'clarify');assert.equal(first.prepared,null);
- const second=await amazonChatReply({adapter,inventory,env,fetcher,messages:[{role:'user',content:'Да, согласен с брифом'}]});assert.equal(second.prepared.display.brief.product,'Cosmetics');assert.deepEqual(second.state.brief,plan.brief);
+ const second=await amazonChatReply({adapter,inventory,env,fetcher,prior:first.state,messages:[{role:'user',content:'Да, согласен с брифом'}]});assert.equal(second.prepared.display.brief.product,'Cosmetics');assert.deepEqual(second.state.brief,plan.brief);
+ const negated=adapter.resolveChatAnswer(input,[{role:'user',content:'Да, но не запускай, бриф неверный'}],first.state);assert.equal(negated.status,'clarify');
+ const modelChanged=adapter.resolveChatAnswer({...input,value:'invented',limit:10,brief:{...plan.brief,country:'AU'}},[{role:'user',content:'Да, согласен с брифом'}],first.state);assert.equal(modelChanged.value,'skincare');assert.equal(modelChanged.limit,5);assert.equal(modelChanged.brief.country,'US');
 });
 function setup({unknown=false,failedSecond=false,environment={}}={}){
  const docs=new Map(),calls=[];let time=1000000;
