@@ -203,3 +203,18 @@ Added Financial category with Yahoo Finance: keyword/ticker discovery and quote-
 ### Financial live publication verification
 
 Production UI 724f3d5 and correction fc7f087 observed Ready in Vercel. Yahoo Finance connection returned connected=true, reason=verified, both search and profile available. Financial page and contextual chat rendered in AFF7. Initial model selected profile for a supplied ticker; corrected server resolution to keyword search using only the value supplied by the client. Live MSFT request then prepared one record with company/ticker/exchange/currency/closing-price/previous-close/earnings/entity/summary/link fields; plan and transcript restored after page reload. No source collection triggered and no financial values presented as actual output. 72 targeted tests passed. Fix fc7f087, regression 7bcd0a1.
+
+## 2026-10-06 — Most Popular / Social Media
+
+Added two views sharing product IDs: Most Popular (six externally curated products with editorial Hot label) and Social Media (15 observed platforms). Data platform named on each card, chat and plan. Private source adapter has 18 URL operations and one ChatGPT prompt operation; unsupported discovery not advertised. 95 targeted tests and build passed. No claim of Affsiwen sales popularity. See SOCIAL_POPULAR_PRODUCTS.md. Publication and live checks follow; source collection/payment remain disabled.
+
+
+## Live publication — 2026-10-06
+
+GitHub main: catalog `0a60eb3`, source routing `1072413`, interface `200e495`, question-preservation fix `9120e8d`, regression checks `0718ab9`. Vercel production showed Ready for `200e495`, then Ready for `9120e8d`. Native AFF7 verified published Social Media (15 cards), Most Popular (six cards), platform names on cards/chat/plans and editorial Hot explanation.
+
+All 16 metadata connections reported connected=true, reason=verified and each configured operation available: LinkedIn, Instagram, TikTok, Facebook, YouTube, X, Reddit, Pinterest, Threads, Snapchat, Quora, Vimeo, Bluesky, Twitch, Bilibili and ChatGPT Search. This verifies source/schema access, not paid collection or output quality.
+
+Live AI preparation succeeded for one Instagram public profile, five Facebook page posts and one ChatGPT Search question. Instagram proposal/history survived entering from Most Popular then Social Media. AI-search initially shortened the requested question; the published fix preserves explicit quoted questions and asks for agreement before preparing a drafted question. Retest after confirmation showed the exact question in the prepared proposal. No source run was triggered; payments and real-data buttons remain disabled.
+
+Local final verification: 23 new tests, 95 total targeted tests passed; cloud build passed. Next: enable a separately bounded real-output pilot after agreeing collection limits, measure cost and completeness, then configure prices/payment. No collection budget or payment configuration changed in this release.

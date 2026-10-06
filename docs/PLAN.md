@@ -122,3 +122,10 @@ Added Financial category with Yahoo Finance: keyword/ticker discovery and quote-
 ### Financial live publication verification
 
 Production UI 724f3d5 and correction fc7f087 observed Ready in Vercel. Yahoo Finance connection returned connected=true, reason=verified, both search and profile available. Financial page and contextual chat rendered in AFF7. Initial model selected profile for a supplied ticker; corrected server resolution to keyword search using only the value supplied by the client. Live MSFT request then prepared one record with company/ticker/exchange/currency/closing-price/previous-close/earnings/entity/summary/link fields; plan and transcript restored after page reload. No source collection triggered and no financial values presented as actual output. 72 targeted tests passed. Fix fc7f087, regression 7bcd0a1.
+
+## 2026-10-06 — Most Popular / Social Media
+
+Added two views sharing product IDs: Most Popular (six externally curated products with editorial Hot label) and Social Media (15 observed platforms). Data platform named on each card, chat and plan. Private source adapter has 18 URL operations and one ChatGPT prompt operation; unsupported discovery not advertised. 95 targeted tests and build passed. No claim of Affsiwen sales popularity. See SOCIAL_POPULAR_PRODUCTS.md. Publication and live checks follow; source collection/payment remain disabled.
+
+
+Publication/live checks completed: Social Media and Most Popular are live; 16 schema connections verified, three live AI preparation flows verified, shared Instagram history verified. Collection/payment remain disabled. Next work: bounded real-data qualification and measured economics before paid checkout. See SOCIAL_POPULAR_PRODUCTS.md for commits and limits.
