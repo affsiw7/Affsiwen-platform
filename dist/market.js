@@ -3,15 +3,25 @@ import {economicsForm,economicsResult} from './economics-ui.js';
 import {landing,publicShell,roleWelcome,examples,offerFor,offerCard,offerPreview} from './landing.js';
 import {partnerWizard} from './partner-onboarding.js';
 const root=document.querySelector('#app');
-let amazonState={connection:null,messages:[],answer:null,plan:null,quote:null,result:null,error:'',text:'',mode:'preview',image:null};
+let amazonState={connection:null,messages:[],answer:null,plan:null,quote:null,result:null,error:'',text:'',mode:'preview',image:null,run:null};
 let amazonRequestId=crypto.randomUUID();
-function drawAmazon(){root.innerHTML=publicShell(amazonPage(amazonState),{user,active:'catalog'});}
-async function openAmazon(){document.title='Amazon — Affsiwen';drawAmazon();try{const [connection,workspace]=await Promise.all([api('amazon/connection'),api('amazon/workspace')]);amazonState={...amazonState,connection,...workspace,error:''};if(!workspace.messages?.length){amazonState.plan=null;amazonState.quote=null;amazonState.result=null;}if(path()==='product/amazon')drawAmazon();}catch(e){amazonState.error=e.message;if(path()==='product/amazon')drawAmazon();}}
+function drawAmazon(){root.innerHTML=publicShell(amazonPage(amazonState),{user,active:'catalog',realData:amazonState.connection?.execution?.enabled});}
+async function openAmazon(){document.title='Amazon — Affsiwen';drawAmazon();try{const [connection,workspace]=await Promise.all([api('amazon/connection'),api('amazon/workspace')]);amazonState={...amazonState,connection,...workspace,error:''};if(!workspace.messages?.length){amazonState.plan=null;amazonState.quote=null;amazonState.result=null;}if(path()==='product/amazon'){drawAmazon();scheduleAmazonPoll();}}catch(e){amazonState.error=e.message;if(path()==='product/amazon')drawAmazon();}}
 async function sendAmazon(message){
  amazonState.text=message;amazonState.pending=true;amazonState.error='';drawAmazon();
  try{const result=await api('amazon/chat',{message,requestId:amazonRequestId,image:amazonState.image});amazonState={...amazonState,...result,text:'',image:null};amazonRequestId=crypto.randomUUID();}
  catch(e){amazonState.error=e.message;}
  finally{amazonState.pending=false;if(path()==='product/amazon'){drawAmazon();root.querySelector('.amazon-offer')?.scrollIntoView({behavior:'smooth',block:'center'});root.querySelector('#amazon-message')?.focus({preventScroll:true});}}
+}
+
+let amazonPollTimer=null,amazonPollCount=0;
+function scheduleAmazonPoll(){clearTimeout(amazonPollTimer);if(path()==='product/amazon'&&['starting','running'].includes(amazonState.run?.status)&&amazonPollCount<60)amazonPollTimer=setTimeout(()=>pollAmazon(),10000);}
+async function pollAmazon(){
+ if(path()!=='product/amazon')return;
+ if(busy||document.hidden){scheduleAmazonPoll();return;}
+ try{amazonPollCount++;const response=await api('amazon/run/status');amazonState.run=response.run;amazonState.result=response.run?.result||null;amazonState.error='';drawAmazon();}
+ catch(e){amazonState.error=e.message;drawAmazon();}
+ finally{scheduleAmazonPoll();}
 }
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'EUR'}).format(n/100);
@@ -81,6 +91,13 @@ root.addEventListener('click',async ev=>{const b=ev.target.closest('[data-action
  if(a==='amazon-suggestion'){await sendAmazon(b.dataset.value);}
  else if(a==='amazon-remove-image'){amazonState.image=null;amazonRequestId=crypto.randomUUID();drawAmazon();}
  else if(a==='amazon-reset'){const cleared=await api('amazon/chat/reset',{});amazonState={...amazonState,...cleared,text:'',error:'',image:null};amazonRequestId=crypto.randomUUID();drawAmazon();}
+ else if(a==='amazon-run'){
+  if(!amazonState.plan)throw Error('Подготовьте запрос.');amazonState.launching=true;amazonState.error='';drawAmazon();
+  try{const response=await api('amazon/run',{planId:amazonState.plan.id,confirm:true});amazonState.run=response.run;amazonState.result=response.run?.result||null;amazonPollCount=0;}
+  catch(e){amazonState.error=e.message;try{const restored=await api('amazon/workspace');amazonState={...amazonState,...restored};}catch{}}
+  finally{amazonState.launching=false;drawAmazon();scheduleAmazonPoll();}
+ }
+ else if(a==='amazon-poll'){busy=false;await pollAmazon();}
  else if(a==='amazon-demo'){if(!amazonState.plan)throw Error('Сначала подготовьте запрос.');const response=await api('amazon/demo',{planId:amazonState.plan.id});amazonState={...amazonState,...response};drawAmazon();root.querySelector('.amazon-result')?.scrollIntoView({behavior:'smooth'});}
  else if(a==='focus-main'){ev.preventDefault();document.querySelector('#page-content')?.focus();}
  else if(a==='landing-example'){landingExample=b.dataset.value;homePage();root.querySelector(`[data-action="landing-example"][data-value="${landingExample}"]`)?.focus({preventScroll:true});}
