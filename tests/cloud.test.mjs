@@ -83,7 +83,9 @@ test('Amazon conversation reaches a quote, survives reload, revises price and ca
  const reset=await call('/api/amazon/chat/reset',{environment,fetcher,headers,data:{}});assert.match(reset.headers['set-cookie'][0],/Max-Age=0/);assert.equal(JSON.parse(reset.body).plan,null);
 });
 test('public assistant reserves the global allowance before any paid model call',async()=>{
- const environment={...env,BRIGHT_DATA_API_KEY:'source',ANTHROPIC_API_KEY:'model-key',AFFSIWEN_AMAZON_CHAT_MODEL:'claude-haiku-4-5-20251001',AFFSIWEN_AMAZON_CHAT_ENABLED:'yes',AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT:'2'};
+ for(const configured of [2,100,10000]){
+ const ceiling=Math.min(100,configured);
+ const environment={...env,BRIGHT_DATA_API_KEY:'source',ANTHROPIC_API_KEY:'model-key',AFFSIWEN_AMAZON_CHAT_MODEL:'claude-haiku-4-5-20251001',AFFSIWEN_AMAZON_CHAT_ENABLED:'yes',AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT:String(configured)};
  let modelCalls=0,allowance=0;const docs=new Map();
  const fetcher=async(url,opts)=>{
   if(String(url).startsWith('https://api.anthropic.com/')){modelCalls++;assert.equal(allowance,modelCalls);return Response.json({stop_reason:'tool_use',content:[{type:'tool_use',name:'amazon_assistant_reply',input:{status:'clarify',message:'Какой товар вас интересует?',options:[],task:'products',market:null,limit:null,value:null,goal:'Получить карточку товара',imageSummary:''}}]});}
@@ -94,11 +96,13 @@ test('public assistant reserves the global allowance before any paid model call'
  };
  const data={message:'Получить карточку товара',requestId:'llm-request-1'};
  assert.equal(modelCalls,0);
- for(let i=0;i<3;i++){
+ for(let i=0;i<ceiling+1;i++){
   const r=await call('/api/amazon/chat',{environment,fetcher,data:{...data,requestId:'llm-request-'+i}});
-  assert.equal(r.statusCode,i<2?200:429,r.body);
+  assert.equal(r.statusCode,i<ceiling?200:429,r.body);
  }
- assert.equal(modelCalls,2);assert.equal(allowance,2);
+ assert.equal(modelCalls,ceiling);assert.equal(allowance,ceiling);
+ assert.equal([...docs.values()].find(x=>x.document?.calls)?.document.reservedMicroUsd,ceiling*100000);
+ }
 });
 
 test('cloud live run roundtrip keeps ownership, returns actual rows and exports without a second trigger',async()=>{
