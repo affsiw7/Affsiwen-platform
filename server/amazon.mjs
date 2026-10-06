@@ -136,6 +136,10 @@ export async function amazonChatReply({messages,prior={},inventory,env={},fetche
   if(answer)answer.usage={inputTokens:Number(output.usage?.input_tokens||0),outputTokens:Number(output.usage?.output_tokens||0)};
 
  }
+ // URL-only products must never turn model wording into an unsupported keyword path.
+ const urlOnly=adapter&&tasks.length>0&&tasks.every(t=>!['search','search-results','upc','sku'].includes(t.id));
+ const suppliedLink=urlOnly&&messages.some(m=>m.role==='user'&&(m.content.match(/https:\/\/[^\s<>"']+/g)||[]).some(v=>adapter.acceptsUrl(v)));
+ if(answer&&urlOnly&&!suppliedLink&&answer.status!=='answer')answer={...answer,status:'clarify',message:`Для ${productName} нужна ссылка на товар или категорию. Поиск по словам пока недоступен. Пришлите ссылку — я подготовлю состав запроса.`,options:[],task:null,value:null};
  if(answer?.status==='ready'){answer.message='Подготовил состав запроса. Проверьте рынок, объём и ожидаемые поля в предложении ниже. Сбор ещё не запущен; цену подтвердим отдельно.';answer.options=[];}
  check(answer&&['clarify','ready','unsupported','answer'].includes(answer.status)&&typeof answer.message==='string'&&answer.message.length<=1800,'Не удалось проверить ответ ассистента.');
  check(!/bright\s?data|apify|actor|https?:|www\.|<[^>]+>/i.test(answer.message+(answer.options||[]).join(' ')),'Ответ ассистента требует уточнения.');

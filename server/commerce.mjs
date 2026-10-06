@@ -43,6 +43,6 @@ export function commerceAdapter(id){
  function normalize(raw,plan){
   const result=normalizeAmazonResults(raw,plan,{linkAllowed:v=>productLinkAllowed(v,product)});return {...result,product:id};
  }
- return {id,product,tasks,markets:product.markets,inventory,available,prepare,normalize,publicConnection:inv=>({connected:inv.connected,reason:inv.reason,product:product.name,category:'E-commerce',checkedAt:new Date().toISOString(),tasks:tasks.map(({id,title,description})=>({id,title,description,available:available(inv).some(t=>t.id===id)}))})};
+ return {id,product,tasks,acceptsUrl:value=>productLinkAllowed(value,product),markets:product.markets,inventory,available,prepare,normalize,publicConnection:inv=>({connected:inv.connected,reason:inv.reason,product:product.name,category:'E-commerce',checkedAt:new Date().toISOString(),tasks:tasks.map(({id,title,description})=>({id,title,description,available:available(inv).some(t=>t.id===id)}))})};
 }
 export const commerceIds=commerceProducts.filter(p=>p.id!=='amazon').map(p=>p.id);
