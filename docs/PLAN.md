@@ -106,3 +106,7 @@ Next acceptance: approve a bounded collection allowance, run 5 products for “i
 ## 2026-10-06 — E-commerce expansion
 
 User requested products analogous to Amazon across E-commerce, with economics to follow observed supplier spend. Implemented six more products: Walmart, eBay, Etsy, AliExpress, Target and Best Buy; 21 source operations. One contextual chat per store, isolated history/results, runtime schema validation, shared AI and collection allowance, table/CSV pipeline. No final price or measured margin asserted. 49 targeted tests and cloud build pass; automated source responses are fixtures. See [ECOMMERCE_PRODUCTS.md](ECOMMERCE_PRODUCTS.md) for scope, evidence, architecture and remaining acceptance.
+
+## Travel / SHEIN extension
+
+Travel now has five prepared platform products; E-commerce adds SHEIN as its eighth. Preserve one conversation per platform. Next: verify deployed metadata connections, qualify paid outputs with a bounded pilot, calculate costs, activate pricing only after measurement. Ready-made bulk SHEIN data and additional regional coverage remain separate qualification work; neither is included implicitly in URL collection.

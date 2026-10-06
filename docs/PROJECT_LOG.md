@@ -181,3 +181,11 @@ Walmart's live Haiku chat correctly prepared five wireless headphones for the US
 All six newly added product connection endpoints were live-verified. Vercel Production showed Ready for `b5963b0`; URL-only fix `9bd0688` is included. A new real AliExpress model response after publication now says a product/category URL is required and keyword search is unavailable, with no unsupported keyword option. Walmart's five-product US plan and conversation restored after leaving the product and returning. Three actual model requests were used in this verification pass, within the existing shared allowance; it was not raised.
 
 This closes the browser-lock interruption and verifies metadata access, example model routing, the URL-only correction, and workspace restoration. It does not establish paid snapshot delivery, all 21 operation mappings on real runs, source cost, commercial pricing or payment readiness. No Bright Data trigger was submitted. Test result: 50 targeted automated tests passed, including the new regression. Published evidence: `docs/evidence/ecommerce-release-2026-10-06.json`.
+
+## 2026-10-06 — Travel + SHEIN
+
+Prepared Travel catalog (Booking.com, Airbnb, Agoda, Trip.com, Naver Hotels), per-platform chats and isolated persisted requests. Booking/Airbnb date-and-guest discovery; other initial Travel operations by property URL. Added SHEIN US on-demand product/category collection. Inspected both SHEIN marketplace entries: ready-made US dataset is separate from on-demand unified schema; non-US coverage not inferred from naming. See TRAVEL_PRODUCTS.md for contract evidence and limits. 63 local tests and cloud build passed; no paid collection, budget expansion or customer payment. Publication verification follows below.
+
+### Travel / SHEIN publication verification
+
+Live production 19b22fc observed Ready. All six new metadata connections verified and advertised their configured operations available. Travel page displayed all five products. Booking chat test was blocked by the existing daily AI quota; no live Travel conversation or paid collection is claimed. Local checks: 64 passed, including bounded result storage. Budgets unchanged. Catalog commit 20d392a; UI 19b22fc; initial tests 36f0843.
