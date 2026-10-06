@@ -64,3 +64,39 @@ test('Amazon workspace persists its plan, isolates visitors and never exposes th
  assert.equal((await call('/api/amazon/export',{environment,fetcher,headers:{cookie:'aff_amazon='+'a'.repeat(64)}})).statusCode,409);
  assert.equal((await call('/api/amazon/prepare',{environment,data:{},headers:{origin:'https://evil.example'}})).statusCode,403);
 });
+test('Amazon conversation reaches a quote, survives reload, revises price and cannot charge',async()=>{
+ const documents=new Map();const fetcher=async(url,opts)=>{
+  if(String(url).startsWith('https://api.brightdata.com/'))return Response.json([{id:'gd_l7q7dkf244hwjntr0',scrapers:{discover_by_keyword:{input_schema:[{name:'keyword',required:true}]}}}]);
+  assert.equal(url.pathname,'/rest/v1/rpc/affsiwen_intake');const body=JSON.parse(opts.body),old=documents.get(body.capability)||{document:null,revision:0};
+  if(body.document){assert.equal(body.expected_revision,old.revision);documents.set(body.capability,{document:body.document,revision:old.revision+1});}
+  return Response.json(documents.get(body.capability)||old);
+ };
+ const environment={...env,BRIGHT_DATA_API_KEY:'chat-source'};let headers={},body,last;
+ for(const [i,message] of ['Сравнить товары по ключевой фразе','insulated water bottle','США (US)','50 записей'].entries()){
+  last={message,requestId:'chat-request-'+i};const r=await call('/api/amazon/chat',{environment,fetcher,headers,data:last});assert.equal(r.statusCode,200,r.body);headers={cookie:r.headers['set-cookie'][0].split(';')[0]};body=JSON.parse(r.body);
+ }
+ assert.equal(body.quote,null);assert.equal(body.plan.limit,50);assert.doesNotMatch(JSON.stringify(body),/gd_|contract|assumptions|chat-source/);
+ const repeated=await call('/api/amazon/chat',{environment,fetcher,headers,data:last});assert.deepEqual(JSON.parse(repeated.body),body);
+ const restored=JSON.parse((await call('/api/amazon/workspace',{environment,fetcher,headers})).body);assert.equal(restored.messages.length,8);assert.equal(restored.quote,null);assert.equal(restored.plan.limit,50);
+ const changed=JSON.parse((await call('/api/amazon/chat',{environment,fetcher,headers,data:{message:'10 записей',requestId:'change-records-1'}})).body);assert.equal(changed.quote,null);assert.equal(changed.plan.limit,10);assert.notEqual(changed.plan.id,body.plan.id);
+ assert.equal((await call('/api/amazon/demo',{environment,fetcher,headers,data:{planId:body.plan.id}})).statusCode,409);
+ const reset=await call('/api/amazon/chat/reset',{environment,fetcher,headers,data:{}});assert.match(reset.headers['set-cookie'][0],/Max-Age=0/);assert.equal(JSON.parse(reset.body).plan,null);
+});
+test('public assistant reserves the global allowance before any paid model call',async()=>{
+ const environment={...env,BRIGHT_DATA_API_KEY:'source',ANTHROPIC_API_KEY:'model-key',AFFSIWEN_AMAZON_CHAT_MODEL:'claude-haiku-4-5-20251001',AFFSIWEN_AMAZON_CHAT_ENABLED:'yes',AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT:'2'};
+ let modelCalls=0,allowance=0;const docs=new Map();
+ const fetcher=async(url,opts)=>{
+  if(String(url).startsWith('https://api.anthropic.com/')){modelCalls++;assert.equal(allowance,modelCalls);return Response.json({stop_reason:'tool_use',content:[{type:'tool_use',name:'amazon_assistant_reply',input:{status:'clarify',message:'Какой товар вас интересует?',options:[],task:'products',market:null,limit:null,value:null,goal:'Получить карточку товара',imageSummary:''}}]});}
+  if(String(url).startsWith('https://api.brightdata.com/'))return Response.json([{id:'gd_l7q7dkf244hwjntr0',scrapers:{collect_by_url:{input_schema:[{name:'url',required:true}]}}}]);
+  if(url.pathname==='/auth/v1/user'){assert.equal(opts.headers.Authorization,'Bearer verified-user');return Response.json({id:'verified-user'});}
+  const b=JSON.parse(opts.body),old=docs.get(b.capability)||{document:null,revision:0};
+  if(b.document){assert.equal(b.expected_revision,old.revision);if(b.document.calls)allowance=b.document.calls;docs.set(b.capability,{document:b.document,revision:old.revision+1});}return Response.json(docs.get(b.capability)||old);
+ };
+ const data={message:'Получить карточку товара',requestId:'llm-request-1'};
+ assert.equal(modelCalls,0);
+ for(let i=0;i<3;i++){
+  const r=await call('/api/amazon/chat',{environment,fetcher,data:{...data,requestId:'llm-request-'+i}});
+  assert.equal(r.statusCode,i<2?200:429,r.body);
+ }
+ assert.equal(modelCalls,2);assert.equal(allowance,2);
+});

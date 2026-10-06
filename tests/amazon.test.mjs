@@ -43,3 +43,35 @@ test('search results and global keyword discovery use their distinct confirmed c
  const a=prepareAmazon({...data,task:'search-results'},result);assert.deepEqual(a.contract.body.input,[{keyword:'bottle',url:'https://www.amazon.de',pages_to_search:1}]);assert.equal(a.contract.query.type,undefined);
  const b=prepareAmazon({...data,task:'search'},result);assert.deepEqual(b.contract.body.input,[{keywords:'bottle',domain:'https://www.amazon.de',pages_to_search:1}]);assert.equal(b.contract.query.discover_by,'keywords');
 });
+import {amazonChatReply,amazonPreviewQuote,amazonChatMode} from '../server/amazon.mjs';
+test('chat clarifies one detail at a time, then offers a bounded server-priced result',async()=>{
+ let messages=[],prior={},out;
+ for(const text of ['Сравнить товары по ключевой фразе','insulated water bottle','США (US)','50 записей']){
+  messages.push({role:'user',content:text});out=await amazonChatReply({messages,prior,inventory});prior=out.state;messages.push({role:'assistant',content:out.answer.message});
+ }
+ assert.equal(out.answer.status,'ready');assert.equal(out.prepared.display.task,'search');assert.equal(out.prepared.display.limit,50);assert.equal(out.prepared.contract.body.input[0].keyword,'insulated water bottle');
+ const q=amazonPreviewQuote(out.prepared.display,0);assert.equal(q.priceCents,430);assert.equal(q.payable,false);assert.equal(q.status,'preview');assert.equal(q.expiresAt,'1970-01-01T00:30:00.000Z');
+ messages.push({role:'user',content:'10 записей'});const changed=await amazonChatReply({messages,prior,inventory});assert.equal(changed.prepared.display.limit,10);assert.equal(amazonPreviewQuote(changed.prepared.display).priceCents,390);
+});
+test('chat does not turn unavailable analysis into a sold scraping job',async()=>{
+ const out=await amazonChatReply({messages:[{role:'user',content:'Проанализируй причины жалоб и гарантируй прибыль'}],inventory});assert.equal(out.answer.status,'unsupported');assert.equal(out.prepared,null);
+});
+test('Anthropic uses a pinned vision model and cannot invent a price or expose credentials',async()=>{
+ assert.equal(amazonChatMode({BRIGHT_DATA_API_KEY:'fixture'}),'preview');
+ const env={ANTHROPIC_API_KEY:'private-llm',AFFSIWEN_AMAZON_CHAT_ENABLED:'yes',AFFSIWEN_AMAZON_CHAT_MODEL:'claude-haiku-4-5-20251001'};
+ const fetcher=async(url,opts)=>{assert.equal(url,'https://api.anthropic.com/v1/messages');assert.equal(opts.headers['x-api-key'],'private-llm');const body=JSON.parse(opts.body);assert.equal(body.max_tokens,1000);assert.equal(body.tool_choice.name,'amazon_assistant_reply');return Response.json({stop_reason:'tool_use',content:[{type:'tool_use',name:'amazon_assistant_reply',input:{status:'clarify',message:'Цена €1',options:[]}}]});};
+ await assert.rejects(()=>amazonChatReply({messages:[{role:'user',content:'Найди товары'}],inventory,env,fetcher}));
+ await assert.rejects(()=>amazonChatReply({messages:[{role:'user',content:'Найди товары'}],inventory,env,fetcher:async()=>Response.json({}, {status:503})}));
+});
+import {validateAmazonImage} from '../server/amazon.mjs';
+const smallPng='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+test('photo input is bounded and sent before text, with only a description retained',async()=>{
+ const image=validateAmazonImage({mediaType:'image/png',data:smallPng});
+ assert.throws(()=>validateAmazonImage({mediaType:'image/svg+xml',data:smallPng}));assert.throws(()=>validateAmazonImage({mediaType:'image/jpeg',data:smallPng}));assert.throws(()=>validateAmazonImage({mediaType:'image/png',data:'A'.repeat(1400004)}));
+ const env={ANTHROPIC_API_KEY:'private-llm',AFFSIWEN_AMAZON_CHAT_ENABLED:'yes',AFFSIWEN_AMAZON_CHAT_MODEL:'claude-haiku-4-5-20251001'};
+ const out=await amazonChatReply({messages:[{role:'user',content:'Найти похожий товар'}],inventory,env,image,fetcher:async(url,opts)=>{
+  const b=JSON.parse(opts.body);assert.equal(b.messages[0].content[0].type,'image');assert.equal(b.messages[0].content[0].source.data,smallPng);assert.equal(b.messages[0].content[1].text,'Найти похожий товар');
+  return Response.json({stop_reason:'tool_use',usage:{input_tokens:100,output_tokens:30},content:[{type:'tool_use',name:'amazon_assistant_reply',input:{status:'clarify',message:'На фото небольшой предмет. Что хотите о нём узнать?',options:[],task:null,value:null,market:null,limit:null,goal:'Найти товар',imageSummary:'Небольшой предмет; деталей недостаточно.'}}]});
+ }});
+ assert.equal(out.imageSummary,'Небольшой предмет; деталей недостаточно.');assert.equal(out.usage.inputTokens,100);assert.doesNotMatch(JSON.stringify(out),/iVBOR|private-llm/);
+});
