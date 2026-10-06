@@ -59,3 +59,22 @@ Source execution configuration has not been increased by this catalog release. A
 49 targeted tests passed before publication: Amazon regression checks plus six adapters, source URL restrictions, unknown required fields, public-source redaction, correct model schema, independent workspaces, real-shaped result/CSV delivery, shared cross-store AI/run quotas and product rendering. Provider responses in automated tests are fixtures. Cloud build passed.
 
 Next: verify deployed connections and dialogs; execute small per-operation real collections in a measured pilot; record requested, returned, useful and billed records, latency, source cost, LLM input/output tokens, error/retry/reconciliation costs; then derive the customer quote and contribution margin. Do not extrapolate observed success on one method or domain to the whole catalog.
+
+
+### Published catalog checkpoint — 2026-10-06
+
+Published commits: adapters `026587d`, public registry `9c7fb86`, backend `892387b`, build `154b4bb`, interface `28dd95b`, tests `a110cb3`, documentation `5703302`. In Chrome AFF7, the public E-commerce route visibly displays all seven products and product-specific Affsiwen links; visual layout checked. The first deployed metadata verification was interrupted by the Mac lock. Browser tool explicitly required manual unlock. No alternate browser/profile used. New-product model dialogs and paid data runs have not yet been live-verified; source connectivity must not be claimed from fixture tests.
+
+
+### Live connection and dialog verification — 2026-10-06
+
+After unlock, all six production connection endpoints returned connected=true and reason=verified (15:12–15:13 UTC). The observed methods were marked available in the returned portions of the metadata response. This is live read-only source metadata access, not evidence of paid collection success.
+
+Walmart's live Haiku chat correctly prepared five wireless headphones for the US market, with product name/ID, price, currency, rating, source link and CSV. Opening Etsy showed its independent empty chat. AliExpress's actual model reply incorrectly suggested a more precise keyword despite URL-only support. Added a server-owned clarification for URL-only products without a supplied source URL; it removes unsupported suggestions and cannot prepare a keyword job. Regression test reproduces the bad model response. 50 targeted tests now pass. Paid collection remains untested and no new source-execution budget was enabled.
+
+
+### Acceptance completed for metadata and request preparation — 2026-10-06
+
+All six newly added product connection endpoints were live-verified. Vercel Production showed Ready for `b5963b0`; URL-only fix `9bd0688` is included. A new real AliExpress model response after publication now says a product/category URL is required and keyword search is unavailable, with no unsupported keyword option. Walmart's five-product US plan and conversation restored after leaving the product and returning. Three actual model requests were used in this verification pass, within the existing shared allowance; it was not raised.
+
+This closes the browser-lock interruption and verifies metadata access, example model routing, the URL-only correction, and workspace restoration. It does not establish paid snapshot delivery, all 21 operation mappings on real runs, source cost, commercial pricing or payment readiness. No Bright Data trigger was submitted. Test result: 50 targeted automated tests passed, including the new regression. Published evidence: `docs/evidence/ecommerce-release-2026-10-06.json`.
