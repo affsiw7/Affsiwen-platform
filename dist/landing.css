@@ -8,3 +8,5 @@
 @media(max-width:450px){.store-hero h1{font-size:30px;letter-spacing:-.8px}.store-hero>p{font-size:14px}.store-products h2{font-size:25px}.offer-card h3{font-size:23px}.purchase-explanation h2{font-size:25px}.store-promise{flex-direction:column}}
 
 .offer-card-top{display:flex;justify-content:space-between;align-items:center;gap:12px}.offer-card-top .favorite{flex-shrink:0}
+
+.hero-product-links{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}.marketing .split{padding:26px 0 50px}.marketing .back{display:inline-block;margin-top:30px}.marketing .hero{margin-top:25px}.marketing .toolbar{margin-top:24px}.marketing .offer-grid{margin-bottom:35px}.marketing .offer-preview .overline{font-size:10px}.marketing .panel{min-width:0}
