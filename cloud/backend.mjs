@@ -70,7 +70,7 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
      const rawQuote=null; // Commercial prices are intentionally deferred until measured economics.
      const quote=rawQuote?Object.fromEntries(Object.entries(rawQuote).filter(([k])=>k!=='assumptions')):null;
      if(image){messages[messages.length-1].hasImage=true;messages[messages.length-1].imageSummary=reply.imageSummary;}
-     const document={messages:[...messages,{role:'assistant',content:reply.answer.message}],answer:reply.answer,chatState:reply.state,mode:reply.mode,usage:reply.usage,plan,contract:reply.prepared?.contract||null,result:null,quote,lastRequest:data.requestId};
+     const document={messages:[...messages,{role:'assistant',content:reply.answer.message}],answer:reply.answer,chatState:reply.state,mode:reply.mode,usage:reply.usage,usageHistory:[...(prior.usageHistory||[]),...(reply.usage?[{...reply.usage,model:env.AFFSIWEN_AMAZON_CHAT_MODEL,at:new Date().toISOString()}]:[])].slice(-16),plan,contract:reply.prepared?.contract||null,result:null,quote,lastRequest:data.requestId};
      await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie('aff_amazon',capability);return json(200,view(document));
     }
     if(path==='/amazon/prepare'&&method==='POST'){
