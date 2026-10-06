@@ -81,7 +81,8 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
       // Public pre-sale chat; access is limited by a global atomic daily allowance.
       const day=new Date().toISOString().slice(0,10),budgetCapability=createHash('sha256').update('amazon-chat-budget:'+day+':'+env.ANTHROPIC_API_KEY).digest('hex');
       const used=await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:budgetCapability}}),calls=Number(used.document?.calls||0);
-      const max=Math.min(10,Math.max(0,Number(env.AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT)||0));
+      // Approved setup ceiling: $10/day, reserving $0.10 per attempt across all products.
+      const max=Math.min(100,Math.max(0,Math.floor(Number(env.AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT)||0)));
       check(calls<max,429,'Лимит ассистента на сегодня исчерпан. Повторите завтра.');
       await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:budgetCapability,expected_revision:used.revision,document:{messages:[],calls:calls+1,reservedMicroUsd:(calls+1)*100000}}});
      }
