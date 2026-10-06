@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-06",
+  "catalogUrl": "https://affsiwen-platform.vercel.app/#e-commerce",
+  "catalogVisible": true,
+  "productCards": [
+    "amazon",
+    "walmart",
+    "ebay",
+    "etsy",
+    "aliexpress",
+    "target",
+    "bestbuy"
+  ],
+  "addedOperations": 21,
+  "automatedTests": {
+    "passed": 50,
+    "provider": "fixtures",
+    "cloudBuild": "passed"
+  },
+  "commits": {
+    "adapters": "026587dcf1a3f47bf5a8e2d2f0784172ba9e7f98",
+    "registry": "9c7fb869b0f1d3958754e3c2b4539ba811af0e12",
+    "backend": "892387b84f696572d21b3d3334c32d7c12f2d4f7",
+    "build": "154b4bbd85f85bdac7eaa373f3bfcb3a3fe0d60f",
+    "interface": "28dd95be9c58363d8381f2f5643d65f76dc5b80c",
+    "tests": "a110cb3fe4fb2a845bd9f261e0ec0b94fa1f5cdb",
+    "docs": "57033026c85ab3c39d3f4a64d1a8a3df75329496",
+    "urlOnlyFix": "9bd06883166ee650fa88972ea09fc263a4bfdcd3",
+    "urlOnlyRegression": "b5963b00b2c182711adcbe0d6a3730a18298503e"
+  },
+  "verification": {
+    "supplierConsole": "Observed all six products and advertised methods in AFF7",
+    "catalog": "Observed all seven names and Affsiwen product links, visual layout checked",
+    "deployedMetadata": "Verified connected=true through live production endpoints for Walmart, eBay, Etsy, AliExpress, Target and Best Buy at 2026-10-06 15:12-15:13 UTC.",
+    "newProductDialog": "Walmart live Haiku reply prepared 5 wireless headphones, US, expected fields and CSV. Its dialog/plan restored after visiting other products. Etsy opened an independent empty history. AliExpress initially offered unsupported keyword refinement; after server fix, the live follow-up explicitly required a product/category URL and stated keyword search is unavailable.",
+    "newProductPaidRun": "Not performed; execution remains disabled",
+    "measuredSupplierCostUsd": null,
+    "commercialPrice": null,
+    "productionDeployment": {
+      "status": "Ready",
+      "commit": "b5963b00b2c182711adcbe0d6a3730a18298503e",
+      "observedIn": "Vercel AFF7 dashboard"
+    }
+  },
+  "blocker": null
+}
