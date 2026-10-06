@@ -3,11 +3,16 @@ import {economicsForm,economicsResult} from './economics-ui.js';
 import {landing,publicShell,roleWelcome,examples,offerFor,offerCard,offerPreview} from './landing.js';
 import {partnerWizard} from './partner-onboarding.js';
 const root=document.querySelector('#app');
-let amazonState={connection:null,draft:{task:'search',market:'US',limit:10},plan:null,result:null,error:''};
-try{amazonState.draft={...amazonState.draft,...JSON.parse(sessionStorage.getItem('affsiwen-amazon-draft')||'{}')};}catch{}
-const saveAmazon=()=>sessionStorage.setItem('affsiwen-amazon-draft',JSON.stringify(amazonState.draft));
+let amazonState={connection:null,messages:[],answer:null,plan:null,quote:null,result:null,error:'',text:'',mode:'preview',image:null};
+let amazonRequestId=crypto.randomUUID();
 function drawAmazon(){root.innerHTML=publicShell(amazonPage(amazonState),{user,active:'catalog'});}
-async function openAmazon(){document.title='Amazon — Affsiwen';drawAmazon();try{const [connection,workspace]=await Promise.all([api('amazon/connection'),api('amazon/workspace')]);amazonState={...amazonState,connection,...workspace,error:''};if(workspace.plan)amazonState.draft={...amazonState.draft,...workspace.plan};if(path()==='product/amazon')drawAmazon();}catch(e){amazonState.error=e.message;if(path()==='product/amazon')drawAmazon();}}
+async function openAmazon(){document.title='Amazon — Affsiwen';drawAmazon();try{const [connection,workspace]=await Promise.all([api('amazon/connection'),api('amazon/workspace')]);amazonState={...amazonState,connection,...workspace,error:''};if(!workspace.messages?.length){amazonState.plan=null;amazonState.quote=null;amazonState.result=null;}if(path()==='product/amazon')drawAmazon();}catch(e){amazonState.error=e.message;if(path()==='product/amazon')drawAmazon();}}
+async function sendAmazon(message){
+ amazonState.text=message;amazonState.pending=true;amazonState.error='';drawAmazon();
+ try{const result=await api('amazon/chat',{message,requestId:amazonRequestId,image:amazonState.image});amazonState={...amazonState,...result,text:'',image:null};amazonRequestId=crypto.randomUUID();}
+ catch(e){amazonState.error=e.message;}
+ finally{amazonState.pending=false;if(path()==='product/amazon'){drawAmazon();root.querySelector('.amazon-offer')?.scrollIntoView({behavior:'smooth',block:'center'});root.querySelector('#amazon-message')?.focus({preventScroll:true});}}
+}
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'EUR'}).format(n/100);
 const count=n=>n===null||n===undefined?'—':new Intl.NumberFormat('ru-RU',{notation:'compact'}).format(n);
@@ -57,7 +62,7 @@ function partnerPage(){root.innerHTML=publicShell(partnerWizard({step:partnerSte
 async function load(){products=(await api('catalog')).products;if(user)favorites=(await api('favorites')).ids;}
 async function render(){const revision=++routeRevision;try{await load();if(revision!==routeRevision)return;const [page,id]=path().split('/');if(!user&&!['home','start','partner','assistant','methodology','catalog','e-commerce','product','login','resume'].includes(page)){location.hash=page==='supply'?'login/supplier':'login';return;}if(['sourcing','operations','analytics','economics','launch'].includes(page)&&user?.role!=='operator'){shell(empty('Нет доступа','Этот раздел доступен оператору Affsiwen.'));return;}if(page==='resume'){const intent=sessionStorage.getItem('affsiwen-login-intent');sessionStorage.removeItem('affsiwen-login-intent');location.hash=intent==='supplier'?(user?.role==='supplier'?'partner/apply':'start/supplier'):pendingOrder?`product/${pendingOrder.productId}`:'assistant';return;}if(page==='home')homePage();else if(page==='start')startPage(id);else if(page==='partner'&&id==='apply')partnerPage();else if(page==='assistant')await assistantPage();else if(page==='methodology')methodology();else if(page==='e-commerce'||page==='catalog'){document.title='E-commerce — Affsiwen';root.innerHTML=publicShell(ecommercePage(),{user,active:'catalog'});}else if(page==='favorites')catalog();else if(page==='product'&&id==='amazon')await openAmazon();else if(page==='product')productPage(products.find(p=>p.id===id&&p.status==='published'));else if(page==='login')login();else if(page==='orders')await orderList();else if(page==='order')await orderPage(id);else if(page==='sourcing'||page==='supply')sourcing();else if(page==='economics')shell(heading('Расчёт цены Agent','Внутренний инструмент Affsiwen. Значения — сценарии, не измеренные расходы.')+economicsForm());else if(page==='analytics')await analytics();else if(page==='operations')await operations();else if(page==='launch')await launch();else shell(empty('Страница не найдена','Вернитесь в каталог.'));}catch(e){toast(e.message,true);if(!root.querySelector('main'))shell(empty('Сервер недоступен','Запустите сервер Affsiwen. Статический хостинг не исполняет заказы.'));}}
 root.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;busy=true;const f=ev.target,data=Object.fromEntries(new FormData(f));const buttons=[...f.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);try{
- if(f.id==='amazon-request'){amazonState.draft={...data,limit:Number(data.limit)};saveAmazon();amazonState.error='';amazonState.plan=null;amazonState.result=null;amazonState.pending=true;drawAmazon();try{const prepared=await api('amazon/prepare',amazonState.draft);amazonState={...amazonState,...prepared};}catch(e){amazonState.error=e.message;}finally{amazonState.pending=false;if(path()==='product/amazon')drawAmazon();}}
+ if(f.id==='amazon-chat'){await sendAmazon(data.message);}
  else if(f.id==='partner-wizard'){
   if(partnerStep<3){partnerDraft={...partnerDraft,...data};partnerStep++;savePartner();partnerPage();window.scrollTo(0,0);}
   else if(!user||!['supplier','operator'].includes(user.role)){savePartner();if(user){await api('logout',{});user=null;favorites=[];}location.hash='login/supplier';}
@@ -73,7 +78,9 @@ root.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;bus
  else if(f.id==='dispute'){await api(`orders/${f.dataset.id}/dispute`,data);await render();}
 }catch(e){toast(e.message,true);}finally{busy=false;buttons.forEach(b=>b.disabled=false);}});
 root.addEventListener('click',async ev=>{const b=ev.target.closest('[data-action]');if(!b||busy)return;const a=b.dataset.action;busy=true;try{
- if(a==='amazon-task'||a==='amazon-example'){const f=root.querySelector('#amazon-request');if(f)amazonState.draft={...Object.fromEntries(new FormData(f)),limit:Number(f.elements.limit.value)};const task=b.dataset.value;amazonState.draft={...amazonState.draft,task,value:'',request:amazonTaskCopy[task].prompt};if(a==='amazon-example'){amazonState.draft.value=['search','products','reviews','upc'].includes(task)?amazonTaskCopy[task].example:'';amazonState.draft.market='US';}amazonState.plan=null;amazonState.result=null;amazonState.error='';saveAmazon();drawAmazon();}
+ if(a==='amazon-suggestion'){await sendAmazon(b.dataset.value);}
+ else if(a==='amazon-remove-image'){amazonState.image=null;amazonRequestId=crypto.randomUUID();drawAmazon();}
+ else if(a==='amazon-reset'){const cleared=await api('amazon/chat/reset',{});amazonState={...amazonState,...cleared,text:'',error:'',image:null};amazonRequestId=crypto.randomUUID();drawAmazon();}
  else if(a==='amazon-demo'){if(!amazonState.plan)throw Error('Сначала подготовьте запрос.');const response=await api('amazon/demo',{planId:amazonState.plan.id});amazonState={...amazonState,...response};drawAmazon();root.querySelector('.amazon-result')?.scrollIntoView({behavior:'smooth'});}
  else if(a==='focus-main'){ev.preventDefault();document.querySelector('#page-content')?.focus();}
  else if(a==='landing-example'){landingExample=b.dataset.value;homePage();root.querySelector(`[data-action="landing-example"][data-value="${landingExample}"]`)?.focus({preventScroll:true});}
@@ -92,8 +99,20 @@ root.addEventListener('click',async ev=>{const b=ev.target.closest('[data-action
  else if(a==='refresh')await render();
  else {const out=await api(`orders/${b.dataset.id}/${a}`,{});if(out.url){location.href=out.url;return;}await render();toast('Заказ обновлён.');}
 }catch(e){toast(e.message,true);}finally{busy=false;}});
-root.addEventListener('input',ev=>{if(ev.target.closest('#amazon-request')){amazonState.draft={...Object.fromEntries(new FormData(ev.target.closest('form')))};amazonState.plan=null;amazonState.result=null;saveAmazon();root.querySelector('.amazon-plan')?.remove();root.querySelector('.amazon-result')?.remove();}if(ev.target.closest('#partner-wizard')&&ev.target.name){partnerDraft[ev.target.name]=ev.target.value;savePartner();}if(ev.target.id==='intake-message'){intakeText=ev.target.value;intakeRequest=crypto.randomUUID();}if(ev.target.id==='catalog-search'){filter=ev.target.value;const position=ev.target.selectionStart;catalog();const el=document.querySelector('#catalog-search');el.focus();el.setSelectionRange(position,position);}if(ev.target.id==='result-search'){resultFilter=ev.target.value;document.querySelector('#results-table').innerHTML=resultTable(window.affsiwenRows||[]);}});
-root.addEventListener('change',ev=>{if(ev.target.closest('#amazon-request')){amazonState.draft={...Object.fromEntries(new FormData(ev.target.closest('form')))};amazonState.plan=null;amazonState.result=null;saveAmazon();root.querySelector('.amazon-plan')?.remove();root.querySelector('.amazon-result')?.remove();}if(ev.target.id==='catalog-sort'){sort=ev.target.value;catalog();}});
+root.addEventListener('input',ev=>{if(ev.target.id==='amazon-message'){amazonState.text=ev.target.value;amazonRequestId=crypto.randomUUID();}if(ev.target.closest('#partner-wizard')&&ev.target.name){partnerDraft[ev.target.name]=ev.target.value;savePartner();}if(ev.target.id==='intake-message'){intakeText=ev.target.value;intakeRequest=crypto.randomUUID();}if(ev.target.id==='catalog-search'){filter=ev.target.value;const position=ev.target.selectionStart;catalog();const el=document.querySelector('#catalog-search');el.focus();el.setSelectionRange(position,position);}if(ev.target.id==='result-search'){resultFilter=ev.target.value;document.querySelector('#results-table').innerHTML=resultTable(window.affsiwenRows||[]);}});
+root.addEventListener('change',ev=>{if(ev.target.id==='amazon-message'){amazonState.text=ev.target.value;amazonRequestId=crypto.randomUUID();}if(ev.target.id==='catalog-sort'){sort=ev.target.value;catalog();}});
 window.addEventListener('hashchange',()=>{resultFilter='';window.scrollTo(0,0);render();});
 try{health=await api('health');try{user=(await api('me')).user;}catch{}await render();}catch{root.innerHTML='<div class="loading"><h1>Сервер платформы не подключён</h1><p>Этот интерфейс работает с API и базой Affsiwen. Запустите сервер или откройте рабочий адрес платформы.</p><a href="http://127.0.0.1:4181/market.html">Открыть локальную платформу</a></div>';}
 setInterval(async()=>{if(!user||busy||!path().startsWith('order/'))return;const id=path().split('/')[1];try{const o=(await api(`orders/${id}`)).order;const was=orders.find(x=>x.id===id);if(was&&was.status!==o.status){if(!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))await render();else toast('Статус заказа изменился: '+labels[o.status]+'. Нажмите «Обновить статус».');}orders=[...orders.filter(x=>x.id!==id),o];}catch{}},3000);
+
+root.addEventListener('change',async ev=>{
+ if(ev.target.id!=='amazon-photo')return;
+ const file=ev.target.files?.[0];if(!file)return;
+ try{
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)throw Error('Выберите JPEG, PNG или WebP до 10 МБ.');
+  const bitmap=await createImageBitmap(file);if(bitmap.width*bitmap.height>50000000){bitmap.close();throw Error('Уменьшите разрешение фото: максимум 50 мегапикселей.');}
+  const ratio=Math.min(1,1280/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*ratio));canvas.height=Math.max(1,Math.round(bitmap.height*ratio));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+  const encoded=canvas.toDataURL('image/jpeg',.82).split(',')[1];if(encoded.length>1400000)throw Error('Фото слишком большое. Выберите менее детальное изображение.');
+  amazonState.image={mediaType:'image/jpeg',data:encoded};amazonState.error='';amazonRequestId=crypto.randomUUID();drawAmazon();
+ }catch(e){amazonState.error=e.message;drawAmazon();}
+});
