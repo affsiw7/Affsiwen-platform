@@ -98,3 +98,37 @@ Built Amazon task selection, exact input/market/limit validation against live sc
 ### Amazon publication verified
 
 Published server adapter `3926411`, private workspace routes `f1e6302`, build `5bbb198`, product interface `c00db1c` and regression checks `b1ea1c5` to GitHub main. On the production page `/#product/amazon`, read-only source access is confirmed; the US keyword request prepared successfully against live schemas and persisted. The explicitly synthetic five-row result survived browser reload. CSV download visibly completed: `affsiwen-amazon-DEMO.csv`, 710 bytes. This proves the request/sample/export path, not real Amazon collection or commercial readiness. No paid run was initiated.
+
+## 2026-10-06 — conversation replaces the task menu
+
+User corrected the journey: one Amazon assistant should infer the data product, clarify the request and offer a concrete result for a concrete price. Removed the visible task menu and parameter form from the primary Amazon page. Added server-persisted conversation, one-question clarification, offer card, revised quote on volume change and sample/export within the conversation.
+
+The deployed dialog remains an explicitly labeled deterministic preview until a separate LLM account is configured. A Responses API adapter is implemented behind explicit feature configuration, authenticated access and a globally reserved daily call ceiling (default 50, maximum 100). It uses strict structured output, bounded messages, a 15-second timeout, and cannot set prices or trigger execution. Failures do not silently switch to pretend AI responses.
+
+Preview pricing is calculated server-side: supplier $1.50/1000 from the observed tariff; scenario FX USD→EUR 1.00; 2x billable-record reserve; assistant €0.10, processing €0.10 and support €0.50; payment €0.30 + 3%; target contribution 70%; round upward to €0.10. Thus 10 records → €3.90, 50 → €4.30, 100 → €4.90. Except the supplier rate, these inputs are assumptions, not measurements. Taxes, real completion costs and customer acceptance remain unverified. The quote is explicitly preview-only, payable=false; no purchase endpoint or real charge is enabled. It is not a promise of these launch prices or margin.
+
+Validation: 25 server/API tests passed, including persisted dialog, revising offers, stale-plan rejection, idempotent repeated messages and blocking model-generated prices; cloud build passed. Publication and live chat verification pending at this checkpoint.
+
+### Publication checkpoint — chat revision not yet live
+
+26 targeted tests now pass, including rejection of anonymous paid-model calls and reservation/enforcement of the global daily allowance. Build passes. The first GitHub navigation did not complete while the user configured Claude in AFF7. The computer-use tool reported the user changed Chrome; after re-reading state the active profile later became Roman. No action was taken in that profile. Publication of this chat revision is pending an available authorized AFF7 window. The existing deployed Amazon page remains the previous task-menu version. Live LLM, payment and data execution remain off.
+
+## 2026-10-06 — Anthropic connected, vision verified
+
+This checkpoint supersedes the prior OpenAI-only plan, preview-only chat state and indicative-price display. The user selected Anthropic and explicitly authorized a workspace-only API key for the Affsiwen Vercel server and up to $1/day of assistant usage, without balance top-ups or paid Bright Data collection. Key created in the dedicated workspace, no Admin API access, expires 2026-11-05. Value saved only as Vercel Production Secret `ANTHROPIC_API_KEY`; never put in repository or client bundle.
+
+Selected pinned model `claude-haiku-4-5-20251001`. Current official Anthropic catalog lists Haiku 4.5 at $1/MTok input and $5/MTok output; it accepts text and images. Sonnet 5.5 is $2/$10, Opus 5.5 $4/$20, Fable 5.1 $10/$50. Selection is based on published cost and modality, not a measured conversion advantage. Sources: https://platform.claude.com/docs/ru/models/overview and https://platform.claude.com/docs/ru/models/haiku-4-5/overview .
+
+Implementation: Anthropic Messages API with forced structured reply tool, server-validated task parameters and one image before text. No autonomous paid tools or data execution. The pre-sale chat is public with a shared atomic allowance: at most ten attempts/day, reserving $0.10 per attempt (including failures/unknown outcomes) against the $1 authorized ceiling. Text payload <=60 KB, one standard-tier image, output <=1000 tokens, no extended thinking or expensive fallback. This is the Affsiwen application's limit, not an organization-wide Anthropic billing setting. Model/token usage is retained privately per conversation for later measurement. The daily allowance is keyed by UTC day.
+
+Photo path: JPEG/PNG/WebP, client original <=10 MB and <=50 MP; downsample to a longest edge of 1280 and encode JPEG; server limits decoded input to 1 MiB and checks media signature. Photo is sent to Anthropic only on explicit chat submission. Full bytes are not persisted in the workspace database; a short generated description is retained for following turns, so later detail-dependent questions may need the image again. No face identification or assumption of exact product identity from a photo. Official vision documentation: https://platform.claude.com/docs/en/build-with-claude/vision .
+
+Live verification on /#product/amazon: a real request for 10 insulated-water-bottle products on Amazon Germany produced a validated plan, expected columns and CSV deliverable. A synthetic image with a blue rectangle left and orange circle right was sent through the upload control and actual API. Claude identified blue on the left and orange circle on the right, calling the near-square rectangle a square; this verifies vision transport/response, not precise visual identification accuracy. The first ready answer incorrectly said “starting search”; server now replaces ready wording with a fixed truthful preparation message and regression tests cover this. No Bright Data trigger was sent.
+
+Pricing and payments are deferred per user instruction: offers show “price being prepared”, no sample euro amount and no checkout. Success here means working AI conversation and request preparation, not real data fulfillment or completed sales. 28 targeted tests and cloud build pass. Initial published commits: caa3520 (model), 66cc314 (routes), ddb4434 (chat UI), 1ac2f5f (timeout), 768989d (tests). Follow-up wording and usage-log fixes are in progress.
+
+### Final live acceptance — 2026-10-06
+
+Three actual Anthropic responses were observed through the published Affsiwen interface: (1) fully specified Amazon DE product request; (2) uploaded synthetic image recognition plus clarification; (3) after navigating away/reloading, a follow-up referencing the first request correctly preserved Amazon DE and “insulated water bottle” and changed the volume from 10 to 5. The third response uses the corrected server-owned wording “Сбор ещё не запущен”. The offer shows no amount, with payment unavailable. No supplier scraping or payment was triggered.
+
+Follow-up commits: 9c2e67a (truthful ready message), 2091064 (private token usage history), 9633e3c (deferred-price wording), ef447f0 (28th regression check). Interface, saved dialog and image input were checked in Chrome AFF7. Public product: https://affsiwen-platform.vercel.app/#product/amazon . No broader production log audit or sales/conversion validation is implied.

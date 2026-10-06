@@ -71,3 +71,13 @@ Vercel обслуживает интерфейс и same-origin API. Supabase х
 ## Active scope: Amazon first (2026-10-06)
 
 Build E-commerce → Amazon as one product with separate task modes. Prioritize actual supplier schemas, a verified connection, request preparation and results/export. See AMAZON_PRODUCT.md for the full integration matrix and remaining real-execution, pricing, identity and payment gates. Previous generic prospecting work is background, not the active launch product.
+
+## Revised interaction: one Amazon conversation
+
+Customer explains a goal → assistant clarifies missing input → server validates the chosen operation → a specific result and price appear in the conversation → confirmed payment → controlled run → result. The old task-selector screen is superseded. The last three commercial steps remain disabled. Configure a separate model API account, validate real costs, finalize total customer prices and taxes, and complete payment/execution reconciliation before accepting money.
+
+LLM configuration: `OPENAI_API_KEY`, `AFFSIWEN_AMAZON_CHAT_MODEL`, explicit `AFFSIWEN_AMAZON_CHAT_ENABLED=yes`, optional `AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT` (default 50, max 100). Do not enable until the chosen model contract, authentication flow and spend cap have been tested. Secrets remain server-only. Existing Bright Data credentials are not LLM credentials.
+
+## Active configuration after Anthropic connection
+
+`ANTHROPIC_API_KEY` is a server-only production secret. `AFFSIWEN_AMAZON_CHAT_MODEL=claude-haiku-4-5-20251001`, `AFFSIWEN_AMAZON_CHAT_ENABLED=yes`, `AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT=10`. OpenAI setup is superseded. Do not widen the approved $1/day assistant allowance without authorization. Key expires 2026-11-05; arrange controlled rotation before then. Real pricing, payment and paid data execution remain later milestones; current chat prepares the requested result only.
