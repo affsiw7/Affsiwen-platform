@@ -1,3 +1,4 @@
+import {commerceAdapter} from '../server/commerce.mjs';
 import {createAmazonRunner,runConfiguration} from '../server/amazon-run.mjs';
 import {amazonInventory,publicAmazonConnection,prepareAmazon,amazonDemoRows,amazonChatReply,amazonChatMode,amazonPreviewQuote,validateAmazonImage} from '../server/amazon.mjs';
 import {quoteProspecting} from '../server/economics.mjs';
@@ -18,7 +19,12 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    check(env.PUBLIC_ORIGIN&&env.SUPABASE_URL&&env.SUPABASE_PUBLISHABLE_KEY,503,'Облачная база ещё не подключена.');
    const origin=new URL(env.PUBLIC_ORIGIN);check(origin.protocol==='https:'&&origin.origin===env.PUBLIC_ORIGIN,503,'Неверный адрес платформы.');
    const base=new URL(env.SUPABASE_URL);check(base.protocol==='https:'&&base.hostname.endsWith('.supabase.co'),503,'Неверный адрес базы.');
-   const url=new URL(req.url,origin),path=url.searchParams.has('route')?'/'+url.searchParams.get('route'):url.pathname.replace(/^\/api/,'');
+   const url=new URL(req.url,origin),requestedPath=url.searchParams.has('route')?'/'+url.searchParams.get('route'):url.pathname.replace(/^\/api/,'');
+   const commerceRoute=requestedPath.match(/^\/commerce\/([a-z]+)(\/.*)$/),adapter=commerceRoute?commerceAdapter(commerceRoute[1]):null;
+   if(commerceRoute)check(adapter,404,'Площадка не найдена.');
+   const path=commerceRoute?'/amazon'+commerceRoute[2]:requestedPath;
+   const workspaceCookie=adapter?'aff_commerce_'+adapter.id:'aff_amazon';
+   const inventoryForProduct=options=>(adapter?.inventory||amazonInventory)(options);
    const method=req.method||'GET';
    check(['GET','POST'].includes(method),405,'Метод не поддерживается.');
    if(method==='POST')check(req.headers.origin===origin.origin&&req.headers['x-affsiwen-request']==='1'&&/^application\/json(?:;|$)/i.test(req.headers['content-type']||''),403,'Запрос должен исходить со страницы Affsiwen.');
@@ -42,12 +48,12 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    if(path==='/health'&&method==='GET'){
     await rpc('catalog',{},'');return json(200,{mode:'cloud-demo',database:'supabase-postgres',execution:'fixture',assistant:'demo',googleLogin:env.GOOGLE_LOGIN_ENABLED==='yes',payments:'fixture',commercialSales:false,demoAccess:false});
    }
-   if(path==='/amazon/connection'&&method==='GET')return json(200,{...publicAmazonConnection(await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher})),assistantMode:amazonChatMode(env),execution:runConfiguration(env)});
+   if(path==='/amazon/connection'&&method==='GET')return json(200,{...(adapter?.publicConnection||publicAmazonConnection)(await inventoryForProduct({key:env.BRIGHT_DATA_API_KEY,fetcher})),assistantMode:amazonChatMode(env),execution:runConfiguration(env)});
    if(['/amazon/workspace','/amazon/prepare','/amazon/demo','/amazon/export','/amazon/chat','/amazon/chat/reset','/amazon/run','/amazon/run/status'].includes(path)){
-    let capability=cookie(req,'aff_amazon');
+    let capability=cookie(req,workspaceCookie);
     if(!/^[a-f0-9]{64}$/.test(capability)){if(method==='GET'&&path==='/amazon/workspace')return json(200,{plan:null,result:null});check(['/amazon/prepare','/amazon/chat','/amazon/chat/reset'].includes(path)&&method==='POST',409,'Сначала подготовьте запрос.');capability=randomBytes(32).toString('hex');}
     const stored=await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability}}),prior=stored.document||{messages:[]};
-    const runner=createAmazonRunner({env,fetcher,read:c=>sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:c}}),write:(c,document,revision)=>sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:c,document,expected_revision:revision}})});
+    const runner=createAmazonRunner({env,fetcher,adapter,read:c=>sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:c}}),write:(c,document,revision)=>sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:c,document,expected_revision:revision}})});
     const liveRun=async()=>env.BRIGHT_DATA_API_KEY&&/^[a-f0-9]{32}$/.test(prior.lastRunId||prior.plan?.id||'')?runner.read(capability,prior.lastRunId||prior.plan.id):null;
     if(path==='/amazon/run'&&method==='POST'){
      check(prior.plan&&prior.plan.id===data.planId,409,'Запрос изменился. Подтвердите актуальное предложение.');
@@ -60,7 +66,7 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
     }
 
     if(path==='/amazon/workspace'&&method==='GET'){const run=await liveRun();return json(200,{plan:prior.plan||null,result:run?.result||prior.result||null,run,messages:prior.messages||[],answer:prior.answer||null,quote:prior.quote||null,mode:prior.mode||amazonChatMode(env)});}
-    if(path==='/amazon/chat/reset'&&method==='POST'){setCookie('aff_amazon','',0);return json(200,{messages:[],answer:null,plan:null,result:null,run:null,quote:null,mode:amazonChatMode(env)});}
+    if(path==='/amazon/chat/reset'&&method==='POST'){setCookie(workspaceCookie,'',0);return json(200,{messages:[],answer:null,plan:null,result:null,run:null,quote:null,mode:amazonChatMode(env)});}
     if(path==='/amazon/chat'&&method==='POST'){
      check(typeof data.message==='string'&&data.message.trim().length>=2&&data.message.length<=2000,400,'Напишите сообщение от 2 до 2000 символов.');
      check(/^[\w-]{8,100}$/.test(data.requestId||''),400,'Нужен идентификатор сообщения.');
@@ -80,18 +86,18 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
       await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:budgetCapability,expected_revision:used.revision,document:{messages:[],calls:calls+1,reservedMicroUsd:(calls+1)*100000}}});
      }
      const messages=[...history,{role:'user',content:data.message.trim()}];
-     const reply=await amazonChatReply({messages,prior:prior.chatState||{},inventory:await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher}),env,fetcher,image,result:previousRun?.result});
+     const reply=await amazonChatReply({messages,prior:prior.chatState||{},adapter,inventory:await inventoryForProduct({key:env.BRIGHT_DATA_API_KEY,fetcher}),env,fetcher,image,result:previousRun?.result});
      const plan=reply.prepared?{...reply.prepared.display,id:randomBytes(16).toString('hex')}:reply.answer.status==='answer'?prior.plan:null;
      const rawQuote=null; // Commercial prices are intentionally deferred until measured economics.
      const quote=rawQuote?Object.fromEntries(Object.entries(rawQuote).filter(([k])=>k!=='assumptions')):null;
      if(image){messages[messages.length-1].hasImage=true;messages[messages.length-1].imageSummary=reply.imageSummary;}
      const document={lastRunId:prior.lastRunId||null,messages:[...messages,{role:'assistant',content:reply.answer.message}],answer:reply.answer,chatState:reply.state,mode:reply.mode,usage:reply.usage,usageHistory:[...(prior.usageHistory||[]),...(reply.usage?[{...reply.usage,model:env.AFFSIWEN_AMAZON_CHAT_MODEL,at:new Date().toISOString()}]:[])].slice(-16),plan,contract:reply.prepared?.contract||null,result:null,quote,lastRequest:data.requestId};
-     await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie('aff_amazon',capability);return json(200,view(document));
+     await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie(workspaceCookie,capability);return json(200,view(document));
     }
     if(path==='/amazon/prepare'&&method==='POST'){
-     const prepared=prepareAmazon(data,await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher}));
+     const prepared=(adapter?.prepare||prepareAmazon)(data,await inventoryForProduct({key:env.BRIGHT_DATA_API_KEY,fetcher}));
      const plan={...prepared.display,id:randomBytes(16).toString('hex')},document={messages:[],plan,contract:prepared.contract,result:null};
-     await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie('aff_amazon',capability);return json(200,{plan,result:null});
+     await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie(workspaceCookie,capability);return json(200,{plan,result:null});
     }
     if(path==='/amazon/demo'&&method==='POST'){
      check(prior.plan&&prior.plan.id===data.planId,409,'Запрос изменился. Подготовьте параметры заново.');
@@ -100,7 +106,7 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
      return json(200,{plan:prior.plan,result});
     }
     if(path==='/amazon/export'&&method==='GET'){
-     const live=await liveRun();if(live?.result?.synthetic===false){res.setHeader('Content-Disposition','attachment; filename="affsiwen-amazon.csv"');res.setHeader('Content-Type','text/csv; charset=utf-8');return res.end(csv(live.result.rows));}
+     const live=await liveRun();if(live?.result?.synthetic===false){res.setHeader('Content-Disposition',`attachment; filename="affsiwen-${adapter?.id||'amazon'}.csv"`);res.setHeader('Content-Type','text/csv; charset=utf-8');return res.end(csv(live.result.rows));}
 
      check(prior.result?.synthetic===true&&Array.isArray(prior.result.rows),409,'Сначала откройте пример результата.');
      res.setHeader('Content-Disposition','attachment; filename="affsiwen-amazon-DEMO.csv"');res.setHeader('Content-Type','text/csv; charset=utf-8');return res.end(csv(prior.result.rows));
