@@ -67,3 +67,7 @@ Vercel обслуживает интерфейс и same-origin API. Supabase х
 Следом: таблица Instagram-профилей, подборка видео TikTok, снимок Google-выдачи. Каждое предложение содержит конкретную аудиторию, входы, поля результата, пример таблицы, применение и ограничения. Помощник нужен для неуверенного покупателя; основной путь — продукт → параметры → заказ. Партнёрский маршрут отделён от покупки.
 
 Это упаковка текущих демо-возможностей, не доказательство спроса и не новый коммерческий прайс. Лимиты и цены загружаются из каталога. Нельзя обещать входящие лиды, эффективность чужой рекламы, автоматический контент-план или прогноз вирусности.
+
+## Active scope: Amazon first (2026-10-06)
+
+Build E-commerce → Amazon as one product with separate task modes. Prioritize actual supplier schemas, a verified connection, request preparation and results/export. See AMAZON_PRODUCT.md for the full integration matrix and remaining real-execution, pricing, identity and payment gates. Previous generic prospecting work is background, not the active launch product.

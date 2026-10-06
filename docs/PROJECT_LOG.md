@@ -88,3 +88,13 @@ https://brightdata.com/pricing/web-scraper — прочитано 06.10.2026: PA
 ### Публикация редакции витрины
 
 В AFF7 опубликованы коммиты `bc2e1b0` (конкретные предложения и таблицы) и `3f1f09c` (единая публичная навигация главной, каталога и карточек до входа; быстрый выбор продукта на первом экране). На живой главной проверены все шесть предложений, аудитории, входы, состав выдачи, серверные лимиты и демоцены. Переход в список компаний открывает правильный продукт, пример таблицы и форму заказа. Консоль на этом пути содержит только ожидаемый 401 анонимного `/api/me`. Это проверка витрины, не сквозной коммерческий заказ.
+
+## 2026-10-06 — Amazon product and verified supplier connection
+
+The product direction is now E-commerce → Amazon, combining related Amazon supplier operations behind one Affsiwen product. This supersedes the generic six-offer storefront as the primary entry point. See AMAZON_PRODUCT.md for verified catalog facts, scope and launch gaps. Production supplier authentication passed through a read-only metadata call; no collection or payment was performed. The secret is stored only in Vercel Production.
+
+Built Amazon task selection, exact input/market/limit validation against live schemas, a persistent private request plan, explicitly synthetic results and CSV export. Supplier contracts stay server-side. Local validation: 21 tests passed and cloud build passed. Publication and live form verification are pending at this checkpoint. Live execution, Google login, payments, measured prices and LLM interpretation are not complete.
+
+### Amazon publication verified
+
+Published server adapter `3926411`, private workspace routes `f1e6302`, build `5bbb198`, product interface `c00db1c` and regression checks `b1ea1c5` to GitHub main. On the production page `/#product/amazon`, read-only source access is confirmed; the US keyword request prepared successfully against live schemas and persisted. The explicitly synthetic five-row result survived browser reload. CSV download visibly completed: `affsiwen-amazon-DEMO.csv`, 710 bytes. This proves the request/sample/export path, not real Amazon collection or commercial readiness. No paid run was initiated.
