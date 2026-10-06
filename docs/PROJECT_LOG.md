@@ -189,3 +189,7 @@ Prepared Travel catalog (Booking.com, Airbnb, Agoda, Trip.com, Naver Hotels), pe
 ### Travel / SHEIN publication verification
 
 Live production 19b22fc observed Ready. All six new metadata connections verified and advertised their configured operations available. Travel page displayed all five products. Booking chat test was blocked by the existing daily AI quota; no live Travel conversation or paid collection is claimed. Local checks: 64 passed, including bounded result storage. Budgets unchanged. Catalog commit 20d392a; UI 19b22fc; initial tests 36f0843.
+
+## 2026-10-06 — Temporary setup AI allowance
+
+User explicitly approved increasing the assistant ceiling to $10/day. Production AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT=100; server hard maximum 100 attempts per UTC day, reserving $0.10 per attempt. Existing daily counter and global cross-product budget key are preserved; no reset or per-product extra allowance. Actual model charges can be lower. No automatic balance top-up or change to source-collection budgets. Regression verifies blocking at 2 and 100 calls, and at 100 even with an oversized configuration. Vercel environment save confirmed; activation requires the ensuing deployment.

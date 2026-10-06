@@ -110,3 +110,7 @@ User requested products analogous to Amazon across E-commerce, with economics to
 ## Travel / SHEIN extension
 
 Travel now has five prepared platform products; E-commerce adds SHEIN as its eighth. Preserve one conversation per platform. Next: verify deployed metadata connections, qualify paid outputs with a bounded pilot, calculate costs, activate pricing only after measurement. Ready-made bulk SHEIN data and additional regional coverage remain separate qualification work; neither is included implicitly in URL collection.
+
+## 2026-10-06 — Temporary setup AI allowance
+
+User explicitly approved increasing the assistant ceiling to $10/day. Production AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT=100; server hard maximum 100 attempts per UTC day, reserving $0.10 per attempt. Existing daily counter and global cross-product budget key are preserved; no reset or per-product extra allowance. Actual model charges can be lower. No automatic balance top-up or change to source-collection budgets. Regression verifies blocking at 2 and 100 calls, and at 100 even with an oversized configuration. Vercel environment save confirmed; activation requires the ensuing deployment.
