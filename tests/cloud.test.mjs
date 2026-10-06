@@ -41,3 +41,26 @@ test('operator receives a scenario quote with no execution approval',async()=>{
  const r=await call('/api/economics/quote',{data,headers:{cookie:'aff_access=jwt'},fetcher:async url=>Response.json(url.pathname==='/auth/v1/user'?{id:'o'}:{user:{role:'operator'}})});
  assert.equal(r.statusCode,200);const q=JSON.parse(r.body);assert.equal(q.supplierUsd,1.5);assert.equal(q.executionAllowed,false);assert.equal(q.mode,'scenario');
 });
+test('Amazon workspace persists its plan, isolates visitors and never exposes the supplier contract',async()=>{
+ const documents=new Map();let providerReads=0,writes=0;
+ const fetcher=async(url,opts)=>{
+  if(String(url).startsWith('https://api.brightdata.com/')){providerReads++;return Response.json([{id:'gd_l7q7dkf244hwjntr0',scrapers:{discover_by_keyword:{input_schema:[{name:'keyword',required:true}]}}}]);}
+  assert.equal(url.pathname,'/rest/v1/rpc/affsiwen_intake');const body=JSON.parse(opts.body),old=documents.get(body.capability)||{document:null,revision:0};
+  if(body.document){assert.equal(body.expected_revision,old.revision);writes++;documents.set(body.capability,{document:body.document,revision:old.revision+1});}
+  return Response.json(documents.get(body.capability)||old);
+ };
+ const environment={...env,BRIGHT_DATA_API_KEY:'test-private-key'};
+ const prepared=await call('/api/amazon/prepare',{environment,fetcher,data:{task:'search',market:'US',limit:3,request:'Найти товары',value:'bottles'}});
+ assert.equal(prepared.statusCode,200);const plan=JSON.parse(prepared.body).plan;
+ assert.doesNotMatch(prepared.body,/gd_|contract|test-private-key/);
+ assert.match(prepared.headers['set-cookie'][0],/HttpOnly; Secure; SameSite=Lax/);
+ const headers={cookie:prepared.headers['set-cookie'][0].split(';')[0]};
+ const restored=await call('/api/amazon/workspace',{environment,fetcher,headers});assert.equal(JSON.parse(restored.body).plan.id,plan.id);assert.doesNotMatch(restored.body,/contract|gd_/);
+ const stranger=await call('/api/amazon/workspace',{environment,fetcher});assert.deepEqual(JSON.parse(stranger.body),{plan:null,result:null});
+ const forged=await call('/api/amazon/demo',{environment,fetcher,headers,data:{planId:'forged'}});assert.equal(forged.statusCode,409);
+ const demo=await call('/api/amazon/demo',{environment,fetcher,headers,data:{planId:plan.id}});assert.equal(demo.statusCode,200);assert.equal(JSON.parse(demo.body).result.synthetic,true);
+ const repeated=await call('/api/amazon/demo',{environment,fetcher,headers,data:{planId:plan.id}});assert.equal(repeated.body,demo.body);assert.equal(writes,2);assert.equal(providerReads,1);
+ const exported=await call('/api/amazon/export',{environment,fetcher,headers});assert.equal(exported.statusCode,200);assert.match(exported.headers['content-disposition'],/DEMO.csv/);assert.match(exported.body,/Демо/);
+ assert.equal((await call('/api/amazon/export',{environment,fetcher,headers:{cookie:'aff_amazon='+'a'.repeat(64)}})).statusCode,409);
+ assert.equal((await call('/api/amazon/prepare',{environment,data:{},headers:{origin:'https://evil.example'}})).statusCode,403);
+});
