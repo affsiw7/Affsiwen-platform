@@ -218,3 +218,8 @@ All 16 metadata connections reported connected=true, reason=verified and each co
 Live AI preparation succeeded for one Instagram public profile, five Facebook page posts and one ChatGPT Search question. Instagram proposal/history survived entering from Most Popular then Social Media. AI-search initially shortened the requested question; the published fix preserves explicit quoted questions and asks for agreement before preparing a drafted question. Retest after confirmation showed the exact question in the prepared proposal. No source run was triggered; payments and real-data buttons remain disabled.
 
 Local final verification: 23 new tests, 95 total targeted tests passed; cloud build passed. Next: enable a separately bounded real-output pilot after agreeing collection limits, measure cost and completeness, then configure prices/payment. No collection budget or payment configuration changed in this release.
+
+
+## 2026-10-06 — Research: cross-platform social product demand
+
+Verified official paid offers from Modash, Brand24, Metricool and SparkToro, plus IAB creator research and a supplier-published agency use case. Created an isolated AffSiwen Keyword Planner research plan; 64 English phrases entered, 62 distinct displayed rows captured for US/Google/all languages, Sep 2025–Aug 2026. Google reports ranges, not exact volumes; searches are not buyers, close variants not summed. No ad campaign or collection triggered. Cross-platform aggregation/chat already offered by competitors. Candidate tests: Creator Shortlist, Content Brief, Customer Questions Brief. Current product gaps and source discovery availability recorded in SOCIAL_DEMAND_RESEARCH_2026-10-06.md. No commercial winner or willingness to pay Affsiwen claimed.

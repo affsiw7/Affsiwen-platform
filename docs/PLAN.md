@@ -129,3 +129,10 @@ Added two views sharing product IDs: Most Popular (six externally curated produc
 
 
 Publication/live checks completed: Social Media and Most Popular are live; 16 schema connections verified, three live AI preparation flows verified, shared Instagram history verified. Collection/payment remain disabled. Next work: bounded real-data qualification and measured economics before paid checkout. See SOCIAL_POPULAR_PRODUCTS.md for commits and limits.
+
+
+## 2026-10-06 — Research: cross-platform social product demand
+
+Verified official paid offers from Modash, Brand24, Metricool and SparkToro, plus IAB creator research and a supplier-published agency use case. Created an isolated AffSiwen Keyword Planner research plan; 64 English phrases entered, 62 distinct displayed rows captured for US/Google/all languages, Sep 2025–Aug 2026. Google reports ranges, not exact volumes; searches are not buyers, close variants not summed. No ad campaign or collection triggered. Cross-platform aggregation/chat already offered by competitors. Candidate tests: Creator Shortlist, Content Brief, Customer Questions Brief. Current product gaps and source discovery availability recorded in SOCIAL_DEMAND_RESEARCH_2026-10-06.md. No commercial winner or willingness to pay Affsiwen claimed.
+
+Next decision: qualify discovery/linking and usable output costs, test paid result-oriented offers, use purchases/repeat use to choose a workflow. Do not treat a social network count or large analytics search volume as a validated USP.
