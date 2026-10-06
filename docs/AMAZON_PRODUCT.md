@@ -117,3 +117,8 @@ Primary API contracts read in the authorized browser on 2026-10-06:
 - [JSON snapshot download](https://docs.brightdata.com/api-reference/scrapers/delivery-apis/download-snapshot)
 
 Next acceptance: approve a bounded collection allowance, run 5 products for “insulated water bottle” on Amazon Germany, verify returned fields and CSV, restore the run after reload, and ask the assistant to compare only those rows. Validate other operations individually before promoting them as tested. Then measure total costs and establish commercial prices, ownership, retention and payment reconciliation.
+
+
+### Deployment acceptance — 2026-10-06
+
+GitHub commits `dd307b6` (tests), `5e4457e` (plan/log), `6307b73` (README) are published. Vercel Production reports Ready for commit `6307b73` at deployment `xuedBttE5uEaDW9SRMxYBU46u53B`. In authorized Chrome AFF7, the public Amazon page restored the existing conversation/plan and displayed the new disabled real-data action. Existing sample rows remain explicitly synthetic; no actual collection or cost measurement is claimed. The separate Bright Data spend question remains unanswered, so execution configuration was not enabled.
