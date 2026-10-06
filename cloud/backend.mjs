@@ -1,4 +1,4 @@
-import {amazonInventory,publicAmazonConnection} from '../server/amazon.mjs';
+import {amazonInventory,publicAmazonConnection,prepareAmazon,amazonDemoRows} from '../server/amazon.mjs';
 import {quoteProspecting} from '../server/economics.mjs';
 import {randomBytes,createHash} from 'node:crypto';
 import {HttpError} from '../server/errors.mjs';
@@ -42,6 +42,28 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
     await rpc('catalog',{},'');return json(200,{mode:'cloud-demo',database:'supabase-postgres',execution:'fixture',assistant:'demo',googleLogin:env.GOOGLE_LOGIN_ENABLED==='yes',payments:'fixture',commercialSales:false,demoAccess:false});
    }
    if(path==='/amazon/connection'&&method==='GET')return json(200,publicAmazonConnection(await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher})));
+   if(['/amazon/workspace','/amazon/prepare','/amazon/demo','/amazon/export'].includes(path)){
+    let capability=cookie(req,'aff_amazon');
+    if(!/^[a-f0-9]{64}$/.test(capability)){if(method==='GET'&&path==='/amazon/workspace')return json(200,{plan:null,result:null});check(path==='/amazon/prepare'&&method==='POST',409,'Сначала подготовьте запрос.');capability=randomBytes(32).toString('hex');}
+    const stored=await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability}}),prior=stored.document||{messages:[]};
+    if(path==='/amazon/workspace'&&method==='GET')return json(200,{plan:prior.plan||null,result:prior.result||null});
+    if(path==='/amazon/prepare'&&method==='POST'){
+     const prepared=prepareAmazon(data,await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher}));
+     const plan={...prepared.display,id:randomBytes(16).toString('hex')},document={messages:[],plan,contract:prepared.contract,result:null};
+     await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie('aff_amazon',capability);return json(200,{plan,result:null});
+    }
+    if(path==='/amazon/demo'&&method==='POST'){
+     check(prior.plan&&prior.plan.id===data.planId,409,'Запрос изменился. Подготовьте параметры заново.');
+     const result=prior.result||{mode:'demo',synthetic:true,rows:amazonDemoRows(prior.plan),createdAt:new Date().toISOString(),title:prior.plan.title};
+     if(!prior.result)await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document:{...prior,result},expected_revision:stored.revision}});
+     return json(200,{plan:prior.plan,result});
+    }
+    if(path==='/amazon/export'&&method==='GET'){
+     check(prior.result?.synthetic===true&&Array.isArray(prior.result.rows),409,'Сначала откройте пример результата.');
+     res.setHeader('Content-Disposition','attachment; filename="affsiwen-amazon-DEMO.csv"');res.setHeader('Content-Type','text/csv; charset=utf-8');return res.end(csv(prior.result.rows));
+    }
+    throw new HttpError(405,'Метод не поддерживается.');
+   }
    if(path==='/register'&&method==='POST'){
     check(['buyer','supplier'].includes(data.role||'buyer'),403,'Эту роль нельзя зарегистрировать.');
     check(typeof data.password==='string'&&data.password.length>=12&&data.password.length<=128,400,'Пароль: от 12 до 128 символов.');
