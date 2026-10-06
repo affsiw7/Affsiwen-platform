@@ -17,14 +17,24 @@ A marketplace for ordering public-data research products under the Affsiwen bran
 - The assistant is explicitly a deterministic demo; an LLM is not connected in the cloud handler.
 - Accounts, orders, partner submissions, messages and results use Postgres. Anonymous demo conversations expire after one day and are protected by a random capability cookie.
 - Tables live in a private schema with RLS and no direct client table grants. Guarded transaction functions enforce identity, ownership, role, limits and idempotency.
-- Public catalog responses contain customer-facing product information. Provider mappings, credentials, local databases and internal working documents are not part of this public release.
+- Public catalog responses contain customer-facing product information. Private provider mappings, credentials, local databases and internal account records are not part of this public release.
 - Real payment reconciliation, provider execution, qualification workflow, production email delivery and password recovery require further integration and end-to-end acceptance tests before commercial launch.
 - The supplied SQL must be reviewed and tested against a dedicated project; mock HTTP tests do not replace database authorization tests.
 
 ## Validation
 
-`node --test tests/cloud.test.mjs`
+`node --test tests/*.test.mjs`
 
 `node scripts/build-cloud.mjs`
 
 The static build uses an explicit asset allowlist. Server code, SQL and internal files are not copied to the web root.
+
+## Product plan and project records
+
+- [Product and launch plan](docs/PLAN.md)
+- [Project log and verified status](docs/PROJECT_LOG.md)
+- [Prospecting pilot: economics and measurement protocol](docs/PROSPECTING_PILOT.md)
+- [Reproducible pricing scenarios](docs/evidence/prospecting-scenarios.json)
+- [Real-run measurement ledger](docs/evidence/prospecting-runs.csv) — empty until real measurements exist.
+
+Run `node scripts/economics-report.mjs` to regenerate the scenario report. These are assumptions, not measured profitability. Internal account records and private operational notes are excluded.
