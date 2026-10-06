@@ -75,3 +75,8 @@ test('photo input is bounded and sent before text, with only a description retai
  }});
  assert.equal(out.imageSummary,'Небольшой предмет; деталей недостаточно.');assert.equal(out.usage.inputTokens,100);assert.doesNotMatch(JSON.stringify(out),/iVBOR|private-llm/);
 });
+
+test('ready response never claims an execution started',async()=>{
+ const out=await amazonChatReply({messages:[{role:'user',content:'10 товаров bottle США'}],inventory,env:{ANTHROPIC_API_KEY:'key',AFFSIWEN_AMAZON_CHAT_ENABLED:'yes',AFFSIWEN_AMAZON_CHAT_MODEL:'claude-haiku-4-5-20251001'},fetcher:async()=>Response.json({stop_reason:'tool_use',content:[{type:'tool_use',name:'amazon_assistant_reply',input:{status:'ready',message:'Начинаю поиск',options:[],task:'search',market:'US',limit:10,value:'bottle',goal:'Сравнить товары',imageSummary:''}}]})});
+ assert.doesNotMatch(out.answer.message,/Начинаю поиск/);assert.match(out.answer.message,/Сбор ещё не запущен/);
+});
