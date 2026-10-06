@@ -1,3 +1,4 @@
+import {amazonInventory,publicAmazonConnection} from '../server/amazon.mjs';
 import {quoteProspecting} from '../server/economics.mjs';
 import {randomBytes,createHash} from 'node:crypto';
 import {HttpError} from '../server/errors.mjs';
@@ -40,6 +41,7 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    if(path==='/health'&&method==='GET'){
     await rpc('catalog',{},'');return json(200,{mode:'cloud-demo',database:'supabase-postgres',execution:'fixture',assistant:'demo',googleLogin:env.GOOGLE_LOGIN_ENABLED==='yes',payments:'fixture',commercialSales:false,demoAccess:false});
    }
+   if(path==='/amazon/connection'&&method==='GET')return json(200,publicAmazonConnection(await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher})));
    if(path==='/register'&&method==='POST'){
     check(['buyer','supplier'].includes(data.role||'buyer'),403,'Эту роль нельзя зарегистрировать.');
     check(typeof data.password==='string'&&data.password.length>=12&&data.password.length<=128,400,'Пароль: от 12 до 128 символов.');
