@@ -193,3 +193,5 @@ Live production 19b22fc observed Ready. All six new metadata connections verifie
 ## 2026-10-06 — Temporary setup AI allowance
 
 User explicitly approved increasing the assistant ceiling to $10/day. Production AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT=100; server hard maximum 100 attempts per UTC day, reserving $0.10 per attempt. Existing daily counter and global cross-product budget key are preserved; no reset or per-product extra allowance. Actual model charges can be lower. No automatic balance top-up or change to source-collection budgets. Regression verifies blocking at 2 and 100 calls, and at 100 even with an oversized configuration. Vercel environment save confirmed; activation requires the ensuing deployment.
+
+Activation verified: Vercel production f99d3e7 observed Ready. One live Booking chat request passed the previously exhausted allowance and produced a prepared plan for Barcelona, 2026-11-10 to 2026-11-12, 2 adults, 1 room, EUR. No collection triggered. Code commit 42094fe; test commit f99d3e7. 45 relevant regression tests passed.
