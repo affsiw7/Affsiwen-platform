@@ -195,3 +195,11 @@ Live production 19b22fc observed Ready. All six new metadata connections verifie
 User explicitly approved increasing the assistant ceiling to $10/day. Production AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT=100; server hard maximum 100 attempts per UTC day, reserving $0.10 per attempt. Existing daily counter and global cross-product budget key are preserved; no reset or per-product extra allowance. Actual model charges can be lower. No automatic balance top-up or change to source-collection budgets. Regression verifies blocking at 2 and 100 calls, and at 100 even with an oversized configuration. Vercel environment save confirmed; activation requires the ensuing deployment.
 
 Activation verified: Vercel production f99d3e7 observed Ready. One live Booking chat request passed the previously exhausted allowance and produced a prepared plan for Barcelona, 2026-11-10 to 2026-11-12, 2 adults, 1 room, EUR. No collection triggered. Code commit 42094fe; test commit f99d3e7. 45 relevant regression tests passed.
+
+## 2026-10-06 — Financial catalog
+
+Added Financial category with Yahoo Finance: keyword/ticker discovery and quote-page profile collection. Read-only console showed one financial domain and two operations. Customer fields use explicit closing price/previous close, source currency and missing-value markers. 71 targeted tests and cloud build passed. See FINANCIAL_PRODUCTS.md for inspected contracts and product scope. Live verification follows; collection/payment remain disabled.
+
+### Financial live publication verification
+
+Production UI 724f3d5 and correction fc7f087 observed Ready in Vercel. Yahoo Finance connection returned connected=true, reason=verified, both search and profile available. Financial page and contextual chat rendered in AFF7. Initial model selected profile for a supplied ticker; corrected server resolution to keyword search using only the value supplied by the client. Live MSFT request then prepared one record with company/ticker/exchange/currency/closing-price/previous-close/earnings/entity/summary/link fields; plan and transcript restored after page reload. No source collection triggered and no financial values presented as actual output. 72 targeted tests passed. Fix fc7f087, regression 7bcd0a1.
