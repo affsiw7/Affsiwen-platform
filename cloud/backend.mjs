@@ -1,3 +1,4 @@
+import {createAmazonRunner,runConfiguration} from '../server/amazon-run.mjs';
 import {amazonInventory,publicAmazonConnection,prepareAmazon,amazonDemoRows,amazonChatReply,amazonChatMode,amazonPreviewQuote,validateAmazonImage} from '../server/amazon.mjs';
 import {quoteProspecting} from '../server/economics.mjs';
 import {randomBytes,createHash} from 'node:crypto';
@@ -41,20 +42,34 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    if(path==='/health'&&method==='GET'){
     await rpc('catalog',{},'');return json(200,{mode:'cloud-demo',database:'supabase-postgres',execution:'fixture',assistant:'demo',googleLogin:env.GOOGLE_LOGIN_ENABLED==='yes',payments:'fixture',commercialSales:false,demoAccess:false});
    }
-   if(path==='/amazon/connection'&&method==='GET')return json(200,{...publicAmazonConnection(await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher})),assistantMode:amazonChatMode(env)});
-   if(['/amazon/workspace','/amazon/prepare','/amazon/demo','/amazon/export','/amazon/chat','/amazon/chat/reset'].includes(path)){
+   if(path==='/amazon/connection'&&method==='GET')return json(200,{...publicAmazonConnection(await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher})),assistantMode:amazonChatMode(env),execution:runConfiguration(env)});
+   if(['/amazon/workspace','/amazon/prepare','/amazon/demo','/amazon/export','/amazon/chat','/amazon/chat/reset','/amazon/run','/amazon/run/status'].includes(path)){
     let capability=cookie(req,'aff_amazon');
     if(!/^[a-f0-9]{64}$/.test(capability)){if(method==='GET'&&path==='/amazon/workspace')return json(200,{plan:null,result:null});check(['/amazon/prepare','/amazon/chat','/amazon/chat/reset'].includes(path)&&method==='POST',409,'Сначала подготовьте запрос.');capability=randomBytes(32).toString('hex');}
     const stored=await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability}}),prior=stored.document||{messages:[]};
-    if(path==='/amazon/workspace'&&method==='GET')return json(200,{plan:prior.plan||null,result:prior.result||null,messages:prior.messages||[],answer:prior.answer||null,quote:prior.quote||null,mode:prior.mode||amazonChatMode(env)});
-    if(path==='/amazon/chat/reset'&&method==='POST'){setCookie('aff_amazon','',0);return json(200,{messages:[],answer:null,plan:null,result:null,quote:null,mode:amazonChatMode(env)});}
+    const runner=createAmazonRunner({env,fetcher,read:c=>sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:c}}),write:(c,document,revision)=>sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:c,document,expected_revision:revision}})});
+    const liveRun=async()=>env.BRIGHT_DATA_API_KEY&&/^[a-f0-9]{32}$/.test(prior.lastRunId||prior.plan?.id||'')?runner.read(capability,prior.lastRunId||prior.plan.id):null;
+    if(path==='/amazon/run'&&method==='POST'){
+     check(prior.plan&&prior.plan.id===data.planId,409,'Запрос изменился. Подтвердите актуальное предложение.');
+     check(data.confirm===true,400,'Подтвердите запуск сбора.');
+     await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document:{...prior,lastRunId:prior.plan.id,result:null},expected_revision:stored.revision}});
+     return json(200,{run:await runner.start(capability,prior.plan)});
+    }
+    if(path==='/amazon/run/status'&&method==='GET'){
+     const id=url.searchParams.get('id')||prior.lastRunId;return json(200,{run:await runner.status(capability,id)});
+    }
+
+    if(path==='/amazon/workspace'&&method==='GET'){const run=await liveRun();return json(200,{plan:prior.plan||null,result:run?.result||prior.result||null,run,messages:prior.messages||[],answer:prior.answer||null,quote:prior.quote||null,mode:prior.mode||amazonChatMode(env)});}
+    if(path==='/amazon/chat/reset'&&method==='POST'){setCookie('aff_amazon','',0);return json(200,{messages:[],answer:null,plan:null,result:null,run:null,quote:null,mode:amazonChatMode(env)});}
     if(path==='/amazon/chat'&&method==='POST'){
      check(typeof data.message==='string'&&data.message.trim().length>=2&&data.message.length<=2000,400,'Напишите сообщение от 2 до 2000 символов.');
      check(/^[\w-]{8,100}$/.test(data.requestId||''),400,'Нужен идентификатор сообщения.');
-     const view=d=>({messages:d.messages||[],answer:d.answer,plan:d.plan||null,result:d.result||null,quote:d.quote||null,mode:d.mode});
+     const previousRun=await liveRun();
+     const view=d=>({messages:d.messages||[],answer:d.answer,plan:d.plan||null,result:d.result||null,run:previousRun||null,quote:d.quote||null,mode:d.mode});
      if(prior.lastRequest===data.requestId){check(prior.messages.filter(m=>m.role==='user').at(-1)?.content===data.message.trim(),409,'Идентификатор запроса уже использован.');return json(200,view(prior));}
      const history=(prior.messages||[]).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string');
      check(history.length<16&&history.reduce((n,m)=>n+m.content.length,0)<16000,429,'Начните новый диалог: достигнут лимит этой беседы.');
+     check(!previousRun||['ready','empty','failed','unknown'].includes(previousRun.status),409,'Дождитесь завершения текущего сбора перед изменением запроса.');
      const mode=amazonChatMode(env),image=validateAmazonImage(data.image);check(!image||mode==='llm',503,'Распознавание фото станет доступно после подключения ассистента.');
      if(mode==='llm'){
       // Public pre-sale chat; access is limited by a global atomic daily allowance.
@@ -65,12 +80,12 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
       await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:budgetCapability,expected_revision:used.revision,document:{messages:[],calls:calls+1,reservedMicroUsd:(calls+1)*100000}}});
      }
      const messages=[...history,{role:'user',content:data.message.trim()}];
-     const reply=await amazonChatReply({messages,prior:prior.chatState||{},inventory:await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher}),env,fetcher,image});
-     const plan=reply.prepared?{...reply.prepared.display,id:randomBytes(16).toString('hex')}:null;
+     const reply=await amazonChatReply({messages,prior:prior.chatState||{},inventory:await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher}),env,fetcher,image,result:previousRun?.result});
+     const plan=reply.prepared?{...reply.prepared.display,id:randomBytes(16).toString('hex')}:reply.answer.status==='answer'?prior.plan:null;
      const rawQuote=null; // Commercial prices are intentionally deferred until measured economics.
      const quote=rawQuote?Object.fromEntries(Object.entries(rawQuote).filter(([k])=>k!=='assumptions')):null;
      if(image){messages[messages.length-1].hasImage=true;messages[messages.length-1].imageSummary=reply.imageSummary;}
-     const document={messages:[...messages,{role:'assistant',content:reply.answer.message}],answer:reply.answer,chatState:reply.state,mode:reply.mode,usage:reply.usage,usageHistory:[...(prior.usageHistory||[]),...(reply.usage?[{...reply.usage,model:env.AFFSIWEN_AMAZON_CHAT_MODEL,at:new Date().toISOString()}]:[])].slice(-16),plan,contract:reply.prepared?.contract||null,result:null,quote,lastRequest:data.requestId};
+     const document={lastRunId:prior.lastRunId||null,messages:[...messages,{role:'assistant',content:reply.answer.message}],answer:reply.answer,chatState:reply.state,mode:reply.mode,usage:reply.usage,usageHistory:[...(prior.usageHistory||[]),...(reply.usage?[{...reply.usage,model:env.AFFSIWEN_AMAZON_CHAT_MODEL,at:new Date().toISOString()}]:[])].slice(-16),plan,contract:reply.prepared?.contract||null,result:null,quote,lastRequest:data.requestId};
      await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie('aff_amazon',capability);return json(200,view(document));
     }
     if(path==='/amazon/prepare'&&method==='POST'){
@@ -85,6 +100,8 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
      return json(200,{plan:prior.plan,result});
     }
     if(path==='/amazon/export'&&method==='GET'){
+     const live=await liveRun();if(live?.result?.synthetic===false){res.setHeader('Content-Disposition','attachment; filename="affsiwen-amazon.csv"');res.setHeader('Content-Type','text/csv; charset=utf-8');return res.end(csv(live.result.rows));}
+
      check(prior.result?.synthetic===true&&Array.isArray(prior.result.rows),409,'Сначала откройте пример результата.');
      res.setHeader('Content-Disposition','attachment; filename="affsiwen-amazon-DEMO.csv"');res.setHeader('Content-Type','text/csv; charset=utf-8');return res.end(csv(prior.result.rows));
     }
