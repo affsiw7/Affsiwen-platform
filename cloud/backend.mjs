@@ -48,7 +48,7 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    if(path==='/health'&&method==='GET'){
     await rpc('catalog',{},'');return json(200,{mode:'cloud-demo',database:'supabase-postgres',execution:'fixture',assistant:'demo',googleLogin:env.GOOGLE_LOGIN_ENABLED==='yes',payments:'fixture',commercialSales:false,demoAccess:false});
    }
-   if(path==='/amazon/connection'&&method==='GET')return json(200,{...(adapter?.publicConnection||publicAmazonConnection)(await inventoryForProduct({key:env.BRIGHT_DATA_API_KEY,fetcher})),assistantMode:amazonChatMode(env),execution:runConfiguration(env)});
+   if(path==='/amazon/connection'&&method==='GET')return json(200,{...(adapter?.publicConnection||publicAmazonConnection)(await inventoryForProduct({key:env.BRIGHT_DATA_API_KEY,fetcher})),assistantMode:amazonChatMode(env),execution:(adapter?.runConfiguration||runConfiguration)(env)});
    if(['/amazon/workspace','/amazon/prepare','/amazon/demo','/amazon/export','/amazon/chat','/amazon/chat/reset','/amazon/run','/amazon/run/status'].includes(path)){
     let capability=cookie(req,workspaceCookie);
     if(!/^[a-f0-9]{64}$/.test(capability)){if(method==='GET'&&path==='/amazon/workspace')return json(200,{plan:null,result:null});check(['/amazon/prepare','/amazon/chat','/amazon/chat/reset'].includes(path)&&method==='POST',409,'Сначала подготовьте запрос.');capability=randomBytes(32).toString('hex');}
