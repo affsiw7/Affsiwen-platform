@@ -223,3 +223,9 @@ Local final verification: 23 new tests, 95 total targeted tests passed; cloud bu
 ## 2026-10-06 — Research: cross-platform social product demand
 
 Verified official paid offers from Modash, Brand24, Metricool and SparkToro, plus IAB creator research and a supplier-published agency use case. Created an isolated AffSiwen Keyword Planner research plan; 64 English phrases entered, 62 distinct displayed rows captured for US/Google/all languages, Sep 2025–Aug 2026. Google reports ranges, not exact volumes; searches are not buyers, close variants not summed. No ad campaign or collection triggered. Cross-platform aggregation/chat already offered by competitors. Candidate tests: Creator Shortlist, Content Brief, Customer Questions Brief. Current product gaps and source discovery availability recorded in SOCIAL_DEMAND_RESEARCH_2026-10-06.md. No commercial winner or willingness to pay Affsiwen claimed.
+
+## 2026-10-06 — единый подбор авторов
+
+Добавлен продукт Creator Shortlist: бриф → подтверждение → ограниченный поиск TikTok + YouTube → кандидаты и CSV. Instagram только по явной ссылке из биографии. Новый флаг исполнения выключен; реальный платный пилот и расчёт цены остаются отдельным этапом. Контракты, ограничения, проверки и план: CREATOR_SHORTLIST.md.
+
+Живая приёмка Creator Shortlist: Vercel Ready d4f9bde; connected=true для обоих поисков; бриф skincare / US / английский / 5 кандидатов → явное подтверждение → предложение 10 видео TikTok + 10 YouTube. Предложение восстановлено после перезагрузки. 104 проверки прошли. Платный сбор для этой приёмки не запускался.
