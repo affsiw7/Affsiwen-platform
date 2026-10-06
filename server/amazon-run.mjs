@@ -8,7 +8,7 @@ const terminal=new Set(['ready','empty','failed','unknown','reserved']);
 export function runConfiguration(env){return {enabled:env.AFFSIWEN_AMAZON_RUN_ENABLED==='yes'&&!!env.BRIGHT_DATA_API_KEY,maxRecords:10,maxRunsPerDay:Math.min(3,Math.max(0,Number(env.AFFSIWEN_AMAZON_RUNS_PER_DAY)||0))};}
 export function publicRun(job){
  if(!job)return null;
- const labels={reserved:'Подготовка запуска. Не отправляйте повторно.',starting:'Запрос отправляется.',running:'Собираем данные Amazon.',ready:'Результат готов.',empty:'Сбор завершён, подходящие записи не найдены.',failed:'Сбор не завершился. Повторного платного запуска не было.',unknown:'Не удалось подтвердить запуск. Нужна сверка; повторный запуск заблокирован.'};
+ const labels={reserved:'Подготовка запуска. Не отправляйте повторно.',starting:'Запрос отправляется.',running:'Собираем данные '+(job.productName||'Amazon')+'.',ready:'Результат готов.',empty:'Сбор завершён, подходящие записи не найдены.',failed:'Сбор не завершился. Повторного платного запуска не было.',unknown:'Не удалось подтвердить запуск. Нужна сверка; повторный запуск заблокирован.'};
  return {id:job.id,status:job.status,message:labels[job.status]||'Проверяем результат.',createdAt:job.createdAt,updatedAt:job.updatedAt,planId:job.plan.id,task:job.plan.title,requested:job.plan.limit,result:job.result||null};
 }
 async function jsonBounded(response,max=2097152){
@@ -20,13 +20,14 @@ async function jsonBounded(response,max=2097152){
 }
 const text=(v,max=300)=>{if(v===undefined||v===null)return '—';if(typeof v==='object')v=v.value??v.amount??v.text??v.name??null;if(v===null||typeof v==='object')return '—';let s=String(v);while(Buffer.byteLength(s)>max)s=s.slice(0,-1);return s||'—';};
 const first=(r,keys)=>keys.map(k=>r[k]).find(v=>v!==undefined&&v!==null&&v!=='');
-export function normalizeAmazonResults(raw,plan){
+export function normalizeAmazonResults(raw,plan,{linkAllowed=null}={}){
  fail(Array.isArray(raw),502,'Источник вернул непонятный формат. Платного повтора не было.');
  const good=raw.filter(r=>r&&typeof r==='object'&&!Array.isArray(r)&&!r.error&&!r.error_code);
  const rows=good.slice(0,plan.limit).map(r=>{
-  let url=text(first(r,['url','product_url','review_url','seller_url']),1000);try{const u=new URL(url);if(u.protocol!=='https:'||!/(^|\.)amazon\.(com|de|co\.uk|fr|es|it|ca|com\.au)$/.test(u.hostname)||u.username||u.password)url='—';}catch{url='—';}
+  let url=text(first(r,['url','product_url','review_url','seller_url']),1000);try{const u=new URL(url);if(linkAllowed?!linkAllowed(url):u.protocol!=='https:'||!/(^|\.)amazon\.(com|de|co\.uk|fr|es|it|ca|com\.au)$/.test(u.hostname)||u.username||u.password)url='—';}catch{url='—';}
   const fields={
    'Товар':text(first(r,['title','product_name','name','product_title'])),
+   'ID товара':text(first(r,['product_id','item_id','sku','asin','id'])),
    'ASIN':text(first(r,['asin','product_asin'])),'Цена':text(first(r,['final_price','price','current_price','initial_price'])),
    'Валюта':text(first(r,['currency','currency_symbol'])),'Рейтинг':text(first(r,['rating','product_rating','seller_rating'])),
    'Ссылка':url,'Позиция':text(first(r,['position','rank','rank_in_search','search_position'])),
@@ -40,9 +41,9 @@ export function normalizeAmazonResults(raw,plan){
  }).filter(r=>Object.values(r).some(v=>v!=='—'));
  return {mode:'live',synthetic:false,rows,title:plan.title,received:raw.length,errorRecords:raw.length-good.length,requested:plan.limit,notice:'Данные получены по этому запросу. «—» означает, что поле не получено. Текстовые поля сокращены для таблицы; выдача может быть меньше запрошенного объёма.'};
 }
-export function createAmazonRunner({env,fetcher=fetch,read,write,now=()=>Date.now()}){
- const config=runConfiguration(env),key=env.BRIGHT_DATA_API_KEY;
- const jobKey=(capability,id)=>sign(key,'amazon-run-v1:'+capability+':'+id);
+export function createAmazonRunner({env,fetcher=fetch,read,write,now=()=>Date.now(),adapter=null}){
+ const config=runConfiguration(env),key=env.BRIGHT_DATA_API_KEY,namespace=adapter?.id||'amazon';
+ const jobKey=(capability,id)=>sign(key,namespace+'-run-v1:'+capability+':'+id);
  const get=async(capability,id)=>{fail(/^[a-f0-9]{64}$/.test(capability)&&/^[a-f0-9]{32}$/.test(id),400,'Некорректное задание.');return read(jobKey(capability,id));};
  const save=(capability,id,document,revision)=>write(jobKey(capability,id),{...document,messages:[],updatedAt:new Date(now()).toISOString()},revision);
  async function start(capability,plan){
@@ -50,9 +51,9 @@ export function createAmazonRunner({env,fetcher=fetch,read,write,now=()=>Date.no
   fail(plan&&/^[a-f0-9]{32}$/.test(plan.id),409,'Подготовьте запрос в чате.');
   fail(Number.isInteger(plan.limit)&&plan.limit>=1&&plan.limit<=config.maxRecords,400,`Для пробного запуска нужен объём от 1 до ${config.maxRecords} записей.`);
   // Never trust caller-editable intake documents or client-supplied provider contracts.
-  const prepared=prepareAmazon(plan,await amazonInventory({key,fetcher}));
+  const prepared=(adapter?.prepare||prepareAmazon)(plan,await (adapter?.inventory||amazonInventory)({key,fetcher}));
   const stored=await get(capability,plan.id);if(stored.document)return publicRun(stored.document);
-  const job={id:plan.id,plan:{...prepared.display,id:plan.id},status:'reserved',createdAt:new Date(now()).toISOString(),snapshot:null,result:null};
+  const job={id:plan.id,product:namespace,productName:adapter?.product.name||'Amazon',plan:{...prepared.display,id:plan.id},status:'reserved',createdAt:new Date(now()).toISOString(),snapshot:null,result:null};
   const initial=await save(capability,plan.id,job,stored.revision);
   // The revision lock above admits exactly one trigger attempt for this plan.
   const day=new Date(now()).toISOString().slice(0,10),budgetKey=sign(key,'amazon-run-budget-v1:'+day);
@@ -88,7 +89,7 @@ export function createAmazonRunner({env,fetcher=fetch,read,write,now=()=>Date.no
     if(progress.status==='failed')next.status='failed';
     else if(progress.status==='ready'){
      const resultResponse=await fetcher(`${BASE}/snapshot/${job.snapshot}?format=json`,{headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(15000),redirect:'error'});
-     if(resultResponse.ok&&resultResponse.status!==202){const result=normalizeAmazonResults(await jsonBounded(resultResponse),job.plan);next={...next,status:result.rows.length?'ready':result.received?'failed':'empty',result:{...result,createdAt:new Date(now()).toISOString()}};}
+     if(resultResponse.ok&&resultResponse.status!==202){const result=(adapter?.normalize||normalizeAmazonResults)(await jsonBounded(resultResponse),job.plan);next={...next,status:result.rows.length?'ready':result.received?'failed':'empty',result:{...result,createdAt:new Date(now()).toISOString()}};}
     }
    }
   }catch{/* Read-only failures keep the saved run recoverable; never retry a trigger. */}
