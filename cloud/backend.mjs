@@ -1,4 +1,4 @@
-import {amazonInventory,publicAmazonConnection,prepareAmazon,amazonDemoRows} from '../server/amazon.mjs';
+import {amazonInventory,publicAmazonConnection,prepareAmazon,amazonDemoRows,amazonChatReply,amazonChatMode,amazonPreviewQuote,validateAmazonImage} from '../server/amazon.mjs';
 import {quoteProspecting} from '../server/economics.mjs';
 import {randomBytes,createHash} from 'node:crypto';
 import {HttpError} from '../server/errors.mjs';
@@ -21,10 +21,10 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    const method=req.method||'GET';
    check(['GET','POST'].includes(method),405,'Метод не поддерживается.');
    if(method==='POST')check(req.headers.origin===origin.origin&&req.headers['x-affsiwen-request']==='1'&&/^application\/json(?:;|$)/i.test(req.headers['content-type']||''),403,'Запрос должен исходить со страницы Affsiwen.');
-   let data={};
+   const bodyLimit=path==='/amazon/chat'?1500000:65536;let data={};
    if(method==='POST'){
-    if(req.body!==undefined){const raw=typeof req.body==='string'?req.body:JSON.stringify(req.body);check(Buffer.byteLength(raw)<=65536,413,'Слишком большой запрос.');data=JSON.parse(raw);}
-    else{let chunks=[],size=0;for await(const b of req){size+=b.length;check(size<=65536,413,'Слишком большой запрос.');chunks.push(b);}data=JSON.parse(Buffer.concat(chunks).toString()||'{}');}
+    if(req.body!==undefined){const raw=typeof req.body==='string'?req.body:JSON.stringify(req.body);check(Buffer.byteLength(raw)<=bodyLimit,413,'Слишком большой запрос.');data=JSON.parse(raw);}
+    else{let chunks=[],size=0;for await(const b of req){size+=b.length;check(size<=bodyLimit,413,'Слишком большой запрос.');chunks.push(b);}data=JSON.parse(Buffer.concat(chunks).toString()||'{}');}
     check(data&&typeof data==='object'&&!Array.isArray(data),400,'Некорректный запрос.');
    }
    async function sb(path,{token,body,method=body===undefined?'GET':'POST'}={}){
@@ -41,12 +41,38 @@ export function createCloudHandler({env=process.env,fetcher=fetch}={}){
    if(path==='/health'&&method==='GET'){
     await rpc('catalog',{},'');return json(200,{mode:'cloud-demo',database:'supabase-postgres',execution:'fixture',assistant:'demo',googleLogin:env.GOOGLE_LOGIN_ENABLED==='yes',payments:'fixture',commercialSales:false,demoAccess:false});
    }
-   if(path==='/amazon/connection'&&method==='GET')return json(200,publicAmazonConnection(await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher})));
-   if(['/amazon/workspace','/amazon/prepare','/amazon/demo','/amazon/export'].includes(path)){
+   if(path==='/amazon/connection'&&method==='GET')return json(200,{...publicAmazonConnection(await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher})),assistantMode:amazonChatMode(env)});
+   if(['/amazon/workspace','/amazon/prepare','/amazon/demo','/amazon/export','/amazon/chat','/amazon/chat/reset'].includes(path)){
     let capability=cookie(req,'aff_amazon');
-    if(!/^[a-f0-9]{64}$/.test(capability)){if(method==='GET'&&path==='/amazon/workspace')return json(200,{plan:null,result:null});check(path==='/amazon/prepare'&&method==='POST',409,'Сначала подготовьте запрос.');capability=randomBytes(32).toString('hex');}
+    if(!/^[a-f0-9]{64}$/.test(capability)){if(method==='GET'&&path==='/amazon/workspace')return json(200,{plan:null,result:null});check(['/amazon/prepare','/amazon/chat','/amazon/chat/reset'].includes(path)&&method==='POST',409,'Сначала подготовьте запрос.');capability=randomBytes(32).toString('hex');}
     const stored=await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability}}),prior=stored.document||{messages:[]};
-    if(path==='/amazon/workspace'&&method==='GET')return json(200,{plan:prior.plan||null,result:prior.result||null});
+    if(path==='/amazon/workspace'&&method==='GET')return json(200,{plan:prior.plan||null,result:prior.result||null,messages:prior.messages||[],answer:prior.answer||null,quote:prior.quote||null,mode:prior.mode||amazonChatMode(env)});
+    if(path==='/amazon/chat/reset'&&method==='POST'){setCookie('aff_amazon','',0);return json(200,{messages:[],answer:null,plan:null,result:null,quote:null,mode:amazonChatMode(env)});}
+    if(path==='/amazon/chat'&&method==='POST'){
+     check(typeof data.message==='string'&&data.message.trim().length>=2&&data.message.length<=2000,400,'Напишите сообщение от 2 до 2000 символов.');
+     check(/^[\w-]{8,100}$/.test(data.requestId||''),400,'Нужен идентификатор сообщения.');
+     const view=d=>({messages:d.messages||[],answer:d.answer,plan:d.plan||null,result:d.result||null,quote:d.quote||null,mode:d.mode});
+     if(prior.lastRequest===data.requestId){check(prior.messages.filter(m=>m.role==='user').at(-1)?.content===data.message.trim(),409,'Идентификатор запроса уже использован.');return json(200,view(prior));}
+     const history=(prior.messages||[]).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string');
+     check(history.length<16&&history.reduce((n,m)=>n+m.content.length,0)<16000,429,'Начните новый диалог: достигнут лимит этой беседы.');
+     const mode=amazonChatMode(env),image=validateAmazonImage(data.image);check(!image||mode==='llm',503,'Распознавание фото станет доступно после подключения ассистента.');
+     if(mode==='llm'){
+      // Public pre-sale chat; access is limited by a global atomic daily allowance.
+      const day=new Date().toISOString().slice(0,10),budgetCapability=createHash('sha256').update('amazon-chat-budget:'+day+':'+env.ANTHROPIC_API_KEY).digest('hex');
+      const used=await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:budgetCapability}}),calls=Number(used.document?.calls||0);
+      const max=Math.min(10,Math.max(0,Number(env.AFFSIWEN_AMAZON_CHAT_DAILY_LIMIT)||0));
+      check(calls<max,429,'Лимит ассистента на сегодня исчерпан. Повторите завтра.');
+      await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability:budgetCapability,expected_revision:used.revision,document:{messages:[],calls:calls+1,reservedMicroUsd:(calls+1)*100000}}});
+     }
+     const messages=[...history,{role:'user',content:data.message.trim()}];
+     const reply=await amazonChatReply({messages,prior:prior.chatState||{},inventory:await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher}),env,fetcher,image});
+     const plan=reply.prepared?{...reply.prepared.display,id:randomBytes(16).toString('hex')}:null;
+     const rawQuote=null; // Commercial prices are intentionally deferred until measured economics.
+     const quote=rawQuote?Object.fromEntries(Object.entries(rawQuote).filter(([k])=>k!=='assumptions')):null;
+     if(image){messages[messages.length-1].hasImage=true;messages[messages.length-1].imageSummary=reply.imageSummary;}
+     const document={messages:[...messages,{role:'assistant',content:reply.answer.message}],answer:reply.answer,chatState:reply.state,mode:reply.mode,usage:reply.usage,plan,contract:reply.prepared?.contract||null,result:null,quote,lastRequest:data.requestId};
+     await sb('/rest/v1/rpc/affsiwen_intake',{body:{capability,document,expected_revision:stored.revision}});setCookie('aff_amazon',capability);return json(200,view(document));
+    }
     if(path==='/amazon/prepare'&&method==='POST'){
      const prepared=prepareAmazon(data,await amazonInventory({key:env.BRIGHT_DATA_API_KEY,fetcher}));
      const plan={...prepared.display,id:randomBytes(16).toString('hex')},document={messages:[],plan,contract:prepared.contract,result:null};
